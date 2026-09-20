@@ -54,8 +54,9 @@ export function SourcesPage() {
                   <dt className="text-ink-muted">Last attempt</dt><dd>{date(h?.started_at)}</dd>
                   <dt className="text-ink-muted">Last success</dt><dd>{date(h?.last_success_at)}</dd>
                   {h?.completed_at && <><dt className="text-ink-muted">Events fetched</dt><dd>{h.candidates.toLocaleString()}</dd><dt className="text-ink-muted">With posters</dt><dd>{h.posters.toLocaleString()} / {h.candidates.toLocaleString()}</dd></>}
-                  {h?.status === 'succeeded' && <><dt className="text-ink-muted">Latest changes</dt><dd>{h.inserted} new · {h.updated} updated · {h.linked} linked · {h.unchanged} unchanged</dd><dt className="text-ink-muted">Preserved edits</dt><dd>{h.conflicts}</dd></>}
+                  {h?.status === 'succeeded' && <><dt className="text-ink-muted">Latest changes</dt><dd>{h.inserted} new · {h.updated} updated · {h.linked} linked · {h.unchanged} unchanged</dd><dt className="text-ink-muted">Linked-page details</dt><dd>{h.detail_enriched} enriched / {h.detail_checked} checked</dd><dt className="text-ink-muted">Preserved edits</dt><dd>{h.conflicts}</dd></>}
                 </dl>
+                {Boolean(h?.detail_failed) && <p className="mt-4 text-sm text-amber-800">{h!.detail_failed} original-page checks were unavailable. Calendar updates continued; previous verified details were kept where possible.</p>}
                 {h?.error_code && <p className="mt-4 text-sm text-red-800">{errors[h.error_code] || 'The latest sync failed.'}</p>}
                 {status === 'Stalled' && <p className="mt-4 text-sm text-red-800">This run has not reported completion. Check the job log.</p>}
                 {status === 'Overdue' && <p className="mt-4 text-sm text-red-800">No successful update in the last 36 hours.</p>}

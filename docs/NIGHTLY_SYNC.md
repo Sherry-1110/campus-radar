@@ -48,7 +48,7 @@ npm run sync:events -- --apply
 For GitHub Actions:
 
 1. Apply pending migrations, including `20260920120000_nightly_event_sync.sql` and
-   `20260920180000_source_monitoring.sql`.
+   `20260920180000_source_monitoring.sql` and `20260920210000_original_source_details.sql`.
    The project URL is already configured in the workflow. A backend API key alone
    cannot perform schema migrations; use the Supabase SQL Editor or an authenticated CLI.
 2. Set one of the backend keys as a repository Actions secret with the matching name.
@@ -140,8 +140,9 @@ Actions status if updates stop. No artificial keepalive commits are generated.
 
 Each adapter lives in `apps/ingestion/src/sources/`; common parsing helpers contain no
 source orchestration. `registry.ts` connects the adapter, stable CLI key, database name,
-and allowed network hosts. Adapters load only when selected. A source cannot fetch arbitrary URLs or the other sources'
-hosts. Each scheduled matrix job has its own process and 30-minute limit. Tests run in
+and allowed network hosts. Adapters load only when selected. Feed requests stay within each adapter's
+allowed hosts; optional organizer-page requests use the separate public-URL guard described below.
+Each scheduled matrix job has its own process and 30-minute limit. Tests run in
 CI; nightly jobs only install and sync, so a source-specific test failure does not prevent
 unrelated production sources from running.
 
@@ -210,3 +211,37 @@ and the public key is denied the monitoring write RPC. Browser verification show
 sources Healthy with correct counts and GitHub run links. A cached 50-event city sample
 also passed disposable PostgreSQL import/reimport with zero inserts or updates on the
 second identical run.
+
+## Original organizer details
+
+After parsing a source, the shared enrichment step follows its event-specific `related_url`.
+PlanIt Purple supplies its “more info” URL and Choose Chicago supplies its event website;
+Bienen and The Garage already fetch their detail pages in their own adapters. New adapters
+can expose an organizer link through the same candidate field.
+
+The step checks matching Event JSON-LD (including occurrence date/range), or matching page
+headings and article content. It retrieves organizer descriptions and image URLs, then follows
+one further explicit event-information link when available. It keeps calendar occurrence times,
+venue, price, cancellation and attendance restrictions. A production's multi-day structured
+date range never replaces an individual performance time. Generic calendars, unrelated events,
+login pages and generic logos are not accepted as event details. Matching uses conservative
+title/date heuristics, so some valid pages will be skipped until a source-specific parser is needed.
+
+The original organizer becomes the event's primary source link; `event_sources` retains the
+discovery listing, and event details display both. Verified field provenance and the visited chain
+stay in the private snapshot. If a later request fails or loses a field, the SQL wrapper retains
+previously verified content while its underlying calendar field and related URL remain unchanged.
+Calendar changes still reconcile, and existing curator-edit protection still applies.
+
+Enrichment covers ongoing/recent events and the next 180 days. Each source gets at most 400
+distinct pages and eight minutes, with four workers, serial requests per host, and shared fetches
+for recurring occurrences. Daily ordering rotates excess links. Each request has a 20-second
+deadline, 2 MiB HTML limit and at most three redirects. Only public HTTPS destinations are allowed:
+credentials and private/reserved addresses are rejected, every redirect is checked, and validated
+DNS answers are pinned to prevent rebinding. No browser session, backend secret or cookie is sent.
+
+`/sources` reports enriched/checked occurrence counts and unavailable original-page checks.
+Optional page failures do not stop calendar updates. Reports also count checks deferred by the
+budget; counts describe this run, not total stored enriched events. Images remain source-hosted;
+not every organizer supplies a poster. JavaScript-only or access-restricted pages are skipped;
+there is no generic agent or login bypass in this version. This uses the existing nightly workflow.

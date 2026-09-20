@@ -2,6 +2,8 @@ import { appendFile, writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createClient } from '@supabase/supabase-js'
+import { enrichSource } from './enrichment.ts'
+import { fetchOriginal } from './original-fetch.ts'
 import { sources as registry } from './registry.ts'
 import type { Candidate, SourceResult } from './types.ts'
 
@@ -14,6 +16,7 @@ export interface SourceSummary {
   posters: number
   cancellations: number
   warnings: string[]
+  details?: SourceResult['details']
   changes?: Record<string, number>
   error?: string
   error_code?: 'fetch_failed' | 'validation_failed' | 'sync_failed' | 'monitoring_failed'
@@ -49,13 +52,13 @@ export function normalizeCandidate(item: Candidate): Candidate {
     data[key] = new Date(data[key]!).toISOString()
   }
   if (data.end_time && data.end_time < data.start_time) throw new Error('Event end precedes start')
-  for (const value of [data.source_url, data.cover_image_url, data.location_url, item.related_url]) {
+  for (const value of [data.source_url, data.cover_image_url, data.location_url, item.related_url, item.listing_url ?? null]) {
     if (value === null) continue
     const parsed = new URL(value)
     if (!['https:', 'http:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('Invalid event URL')
   }
   if (!data.source_url) throw new Error('Missing source URL')
-  return { external_id: item.external_id, related_url: item.related_url, data }
+  return { external_id: item.external_id, related_url: item.related_url, listing_url: item.listing_url ?? item.data.source_url, ...(item.enrichment ? { enrichment: item.enrichment } : {}), data }
 }
 
 // Bounded, credential-free fetching of configured publisher sites only.
@@ -110,6 +113,7 @@ export async function runSync(sources: Source[], apply: Apply | null, monitor?: 
       const items = result.items.map(normalizeCandidate)
       if (!items.length) throw new Error('Refusing empty source snapshot')
       if (new Set(items.map(item => item.external_id)).size !== items.length) throw new Error('Duplicate source IDs')
+      summary.details = result.details
       summary.candidates = items.length
       summary.posters = items.filter(item => item.data.cover_image_url).length
       summary.cancellations = items.filter(item => item.data.is_cancelled).length
@@ -178,7 +182,8 @@ async function main() {
       finish: async (runId, summary) => {
         const { error } = await client.rpc('finish_source_sync', {
           p_run_id: runId, p_status: summary.status === 'applied' ? 'succeeded' : 'failed',
-          p_summary: { ...summary.changes, candidates: summary.candidates, posters: summary.posters, error_code: summary.error_code },
+          p_summary: { ...summary.changes, candidates: summary.candidates, posters: summary.posters, error_code: summary.error_code,
+            detail_checked: summary.details?.checked ?? 0, detail_enriched: summary.details?.enriched ?? 0, detail_failed: summary.details?.failed ?? 0 },
         })
         if (error) throw new Error(`Cannot finish source monitor: ${error.code}`)
       },
@@ -190,7 +195,7 @@ async function main() {
     })
   }
   const sources = registry.filter(source => values.source === 'all' || values.source === source.id)
-    .map(source => ({ name: source.name, fetch: () => source.fetch(url => fetchText(url, source.hosts)) }))
+    .map(source => ({ name: source.name, fetch: async () => enrichSource(await source.fetch(url => fetchText(url, source.hosts)), fetchOriginal) }))
   const report = await runSync(sources, apply, monitor)
   await writeFile(values.report, `${JSON.stringify(report, null, 2)}\n`)
   if (process.env.GITHUB_STEP_SUMMARY) {

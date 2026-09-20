@@ -44,6 +44,7 @@ export type Database = {
           source_name: string; run_id: string; status: 'running' | 'succeeded' | 'failed'
           started_at: string; completed_at: string | null; last_success_at: string | null
           run_url: string | null; candidates: number; posters: number; inserted: number
+          detail_checked: number; detail_enriched: number; detail_failed: number
           updated: number; unchanged: number; linked: number; conflicts: number; error_code: string | null
         }
         Insert: never

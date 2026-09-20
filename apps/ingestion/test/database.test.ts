@@ -25,7 +25,7 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     for (const file of (await readdir(migrations)).filter(f => f.endsWith('.sql')).sort()) {
       await db.exec(await readFile(new URL(file, migrations), 'utf8'))
     }
-    const functions = await db.query("select 1 from pg_proc where proname = 'sync_source_events'")
+    const functions = await db.query("select 1 from pg_proc where proname = 'sync_source_events' and pronamespace='public'::regnamespace")
     assert.equal(functions.rows.length, 1, 'The service-only nightly sync RPC must exist')
 
     // These existing checks require a fresh database with no imported events.
@@ -151,6 +151,28 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     city.external_id = 'city-1'; city.data.title = 'City event'; city.data.source_url = 'https://www.choosechicago.com/event/test/'
     assert.equal((await sync([city], 'Choose Chicago')).inserted, 1)
     await assert.rejects(sync([city], 'Instagram (curated)'), /Unsupported|no rows/i)
+
+    // Optional detail failures retain verified content while schedule/cancellation still update.
+    const detailed = { ...structuredClone(city), external_id: 'detail-1', listing_url: 'https://www.choosechicago.com/event/details/', related_url: 'https://organizer.example/concert',
+      enrichment: { status: 'enriched', fields: ['description','cover_image_url','source_url'], base: { description: 'Calendar note', cover_image_url: null, source_url: 'https://www.choosechicago.com/event/details/' }, chain: ['https://organizer.example/concert'] } }
+    detailed.data.title='Detailed original event'; detailed.data.description='Verified original program';
+    detailed.data.cover_image_url='https://organizer.example/poster.jpg'; detailed.data.source_url=detailed.related_url;
+    await sync([detailed], 'Choose Chicago')
+    const fallback=structuredClone(detailed)
+    fallback.data.description='Calendar note'; fallback.data.cover_image_url=null as unknown as string;
+    fallback.data.source_url=detailed.listing_url; fallback.data.is_cancelled=true;
+    fallback.enrichment.status='unavailable'; fallback.enrichment.fields=[]; fallback.enrichment.chain=[];
+    assert.equal((await sync([fallback], 'Choose Chicago')).updated,1)
+    const recovered=(await db.query<{description:string;cover_image_url:string;source_url:string;is_cancelled:boolean}>("select * from events where title='Detailed original event'")).rows[0]
+    assert.equal(recovered.description,detailed.data.description)
+    assert.equal(recovered.cover_image_url,detailed.data.cover_image_url)
+    assert.equal(recovered.source_url,detailed.related_url)
+    assert.equal(recovered.is_cancelled,true)
+    assert.equal((await sync([fallback], 'Choose Chicago')).unchanged,1)
+    fallback.enrichment.status='enriched'; fallback.enrichment.fields=['source_url']; fallback.data.source_url=detailed.related_url;
+    await sync([fallback], 'Choose Chicago')
+    assert.equal((await db.query<{cover_image_url:string}>("select cover_image_url from events where title='Detailed original event'")).rows[0].cover_image_url,detailed.data.cover_image_url,'A valid page without artwork must not erase a previously verified image')
+    assert.equal((await db.query<{source_url:string}>("select source_url from event_sources where external_id='detail-1'")).rows[0].source_url,detailed.listing_url)
 
     for (const role of ['anon', 'authenticated']) {
       await db.exec(`set role ${role}`)

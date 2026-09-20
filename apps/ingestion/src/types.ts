@@ -17,6 +17,8 @@ export interface EventData {
 }
 
 export interface Candidate {
+  listing_url?: string
+  enrichment?: { status: 'enriched' | 'unavailable'; fields: string[]; base: Record<string, string | null>; chain: string[] }
   external_id: string
   data: EventData
   // A canonical organizer URL can identify an event also listed in another feed.
@@ -24,6 +26,7 @@ export interface Candidate {
 }
 
 export interface SourceResult {
+  details?: { checked: number; enriched: number; failed: number; skipped: number }
   items: Candidate[]
   warnings: string[]
 }
