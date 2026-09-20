@@ -3,6 +3,7 @@ import { load } from 'cheerio'
 import { createHash } from 'node:crypto'
 import { record, text, string } from './sources/shared.ts'
 import type { Candidate, SourceResult } from './types.ts'
+import type { Decision } from './semantic.ts'
 
 type Page = { html: string; url: string }
 type FetchPage = (url: string) => Promise<Page>
@@ -19,7 +20,7 @@ function descriptionMatches(reference: string, passage: string) {
   // are still needed when an organizer rewrites both the title and description.
   return expected.size>=16 && [...expected].filter(pair=>actual.has(pair)).length/expected.size>=0.75
 }
-function link(value: unknown, base: string): string | null {
+export function link(value: unknown, base: string): string | null {
   const raw=string(value).trim()
   if(!raw) return null
   try {
@@ -31,13 +32,13 @@ function link(value: unknown, base: string): string | null {
     return assertPublicUrl(u.href).href
   } catch { return null }
 }
-function image(value: unknown, base: string): string | null {
+export function image(value: unknown, base: string): string | null {
   const v=Array.isArray(value)?value[0]:value
   const u=link(typeof v==='object'?record(v).url||record(v).contentUrl:v,base)
   if(u && new URL(u).hostname==='cdn.addevent.com' && /\/(?:libs\/imgs|web\/images)\//.test(new URL(u).pathname)) return null
   return u && !/logo|favicon|placeholder|default[-_ ]?image/i.test(new URL(u).pathname) ? u : null
 }
-function nodes(value: unknown): Record<string, unknown>[] {
+export function nodes(value: unknown): Record<string, unknown>[] {
   if(Array.isArray(value)) return value.flatMap(nodes)
   const r=record(value)
   return [r,...nodesArray(r['@graph']),...nodesArray(r.mainEntity)]
@@ -82,7 +83,7 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   return { description:description||null,image:poster,next:[...new Set(next)] }
 }
 
-export async function enrichSource(result: SourceResult, fetchPage: FetchPage, now=new Date()): Promise<SourceResult> {
+export async function enrichSource(result: SourceResult, fetchPage: FetchPage, now=new Date(), semantic?:{mode:'shadow'|'apply';select:(html:string,url:string,item:Candidate)=>Promise<Decision>}): Promise<SourceResult> {
   const items=structuredClone(result.items)
   const details={checked:0,enriched:0,failed:0,skipped:0}
   const cache=new Map<string,Promise<Page>>()
@@ -122,7 +123,18 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
         if(!depth) details.checked++
         try{
           const page=await get(target);chain.push(page.url)
-          const extracted=extractDetail(page.html,page.url,item)
+          let extracted=extractDetail(page.html,page.url,item)
+          if(semantic) {
+            const decision=await semantic.select(page.html,page.url,item)
+            ;(item.semantic??=[]).push(decision.audit)
+            if(semantic.mode==='apply') {
+              if(decision.audit.outcome==='failed'){failed=true;details.failed++}
+              if(decision.audit.outcome==='deferred')details.skipped++
+              // A model rejection/uncertainty never falls through to weaker matching.
+              // On service/budget failure the existing rules remain available.
+              if(!['failed','deferred'].includes(decision.audit.outcome)) extracted=decision.detail
+            }
+          }
           if(!extracted) break
           const known=words(item.data.description||'').join(' ')
           const extra=(extracted.description||'').split(/\n{2,}/).filter(p=>{

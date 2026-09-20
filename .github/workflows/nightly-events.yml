@@ -34,11 +34,18 @@ jobs:
           node-version-file: apps/web/.nvmrc
           cache: npm
       - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: apps/ingestion/.jev-cache
+          key: jev-v1-${{ matrix.source }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: jev-v1-${{ matrix.source }}-
       - name: Fetch and reconcile source events
         env:
           SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          JEV_MODE: shadow
           APPLY: ${{ github.event_name == 'schedule' || inputs.apply }}
         run: |
           if [ "$APPLY" = "true" ]; then

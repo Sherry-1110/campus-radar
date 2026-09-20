@@ -4,7 +4,7 @@
 
 Implement the PlanIt Purple, Bienen, Choose Chicago, and The Garage pipeline as a nightly reconciliation job. Fetch upcoming events and a recent-history overlap, compare normalized source snapshots using stable occurrence IDs, insert new events, and update only changed source fields. Explicit cancellations remain visible as canceled; missing events are never automatically canceled or deleted. Preserve manual edits when a source changes a field already edited by a curator. Use source-provided poster images, with the existing category fallback when none is available.
 
-Run nightly at 08:17 UTC (03:17 Chicago daylight time / 02:17 standard time), with a manual dry-run option and non-overlapping runs. Newly imported source events are published; moderation changes to existing events are preserved. No social sources or AI extraction are part of this job.
+Run nightly at 08:17 UTC (03:17 Chicago daylight time / 02:17 standard time), with a manual dry-run option and non-overlapping runs. Newly imported source events are published; moderation changes to existing events are preserved. No social sources are part of this job. Optional Jev matching and passage selection run within the same workflow, as described below.
 
 1. Add tested source parsers using the observed XML/JSON formats, source IDs, date offsets, explicit cancellation markers, event images, and Bienen detail-page locations. Reject malformed feeds and candidates before writes.
 2. Add private source snapshots and a service-only database RPC with atomic batches. Test first insert, unchanged rerun, edits, date change, cancellation/reinstatement, manual edits, duplicates, missing records, and unauthorized calls.
@@ -249,7 +249,7 @@ DNS answers are pinned to prevent rebinding. No browser session, backend secret 
 Optional page failures do not stop calendar updates. Reports also count checks deferred by the
 budget; counts describe this run, not total stored enriched events. Images remain source-hosted;
 not every organizer supplies a poster. JavaScript-only or access-restricted pages are skipped;
-there is no generic agent or login bypass in this version. This uses the existing nightly workflow.
+there is no autonomous browser agent or login bypass in this version. This uses the existing nightly workflow.
 
 Activation checks on September 20: 45 tests, typecheck, lint, build and GitHub CI passed.
 The migration was applied through Supabase SQL Editor; public RPC writes remain denied.
@@ -266,3 +266,46 @@ All four jobs completed successfully. Choose Chicago checked 2,751 occurrences a
 2,364 checks deferred by the 400-page budget, which rotates on later nights. Bienen's 68
 and The Garage's 14 existing events stayed unchanged. The production monitor confirms all
 four sources succeeded and exposes enrichment counts independently of calendar health.
+
+
+## Jev semantic matching and distillation
+
+The existing nightly workflow supplies `TYPESAFE_API_KEY` from repository Actions secrets.
+It calls the pinned `jev-1.13.0` API; no model server, new hosting service, or frontend key
+is needed. `JEV_MODE=shadow` records decisions while preserving the rule-based output;
+`JEV_MODE=apply` uses accepted decisions. Omitting the mode retains the original importer.
+
+Before each applicable source run, six live cases must pass: recurring Sheil Mass with
+relevant visitor information, a paraphrased concert title, conflicting occurrence dates,
+wrong campus/weekday, a generic directory, and malicious instructions inside page text.
+Failure disables semantic decisions for that source run while calendar imports continue.
+This small evaluation is a rollout check, not a universal accuracy guarantee.
+
+The page is reduced to bounded text blocks with heading context, structured event metadata,
+and public image/link candidates. One request asks for occurrence/series/unrelated/insufficient
+classification, relevance of each paragraph, and image/next-link selection. Code copies
+selected source text and URLs verbatim: Jev cannot invent an output URL or rewrite dates,
+prices, venue, status, or attendance restrictions. It is text-only; image selection uses
+captions and page metadata, not visual inspection. Contradictions or uncertainty defer
+enrichment and keep previously verified fields where the source baseline is unchanged.
+
+Accepted relations require at least 0.9 selected-option probability and 0.8 confidence;
+passages require 0.9 relevance probability. These are conservative initial gates evaluated
+on the included examples, not calibrated accuracy claims. API failures and budget deferrals
+fall back to the existing rules. Failures retain prior verified values through the current
+SQL reconciliation. The model version, outcome, page evidence hash and selected text are
+stored in private source snapshots, separate from public event fields.
+
+A content/context/prompt/model-keyed disk cache is restored by GitHub Actions separately
+for each source. It holds public-source judgments, never API keys, with a 30-day read TTL.
+Changed occurrence dates, source text, questions, or model versions invalidate reuse.
+Each source is limited to 150 API attempts and ten minutes of model work, in addition to
+existing page-fetch limits. Requests time out after 20 seconds; 429/5xx get one retry.
+Cache write failures do not stop the import. Deferred work rotates with the existing daily
+link ordering. Persistent queueing can replace this bounded approach if coverage stalls.
+
+Reports and the linked GitHub summary show evaluation outcome, accepted/unmatched/uncertain/
+failed/deferred decisions, cache hits, API attempts and input tokens. `/sources` continues
+to show calendar health and overall enrichment counts, linking to those detailed reports.
+No autonomous browsing, embedding database, generative rewriting, or hosting migration is
+part of this first integration.

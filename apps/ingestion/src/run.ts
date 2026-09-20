@@ -4,6 +4,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { createClient } from '@supabase/supabase-js'
 import { enrichSource } from './enrichment.ts'
 import { fetchOriginal } from './original-fetch.ts'
+import { createJev } from './semantic.ts'
+import { evaluateJev } from './semantic-eval.ts'
 import { sources as registry } from './registry.ts'
 import type { Candidate, SourceResult } from './types.ts'
 
@@ -17,6 +19,7 @@ export interface SourceSummary {
   cancellations: number
   warnings: string[]
   details?: SourceResult['details']
+  semantic?: SourceResult['semantic']
   changes?: Record<string, number>
   error?: string
   error_code?: 'fetch_failed' | 'validation_failed' | 'sync_failed' | 'monitoring_failed'
@@ -58,7 +61,7 @@ export function normalizeCandidate(item: Candidate): Candidate {
     if (!['https:', 'http:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('Invalid event URL')
   }
   if (!data.source_url) throw new Error('Missing source URL')
-  return { external_id: item.external_id, related_url: item.related_url, listing_url: item.listing_url ?? item.data.source_url, ...(item.enrichment ? { enrichment: item.enrichment } : {}), data }
+  return { external_id: item.external_id, related_url: item.related_url, listing_url: item.listing_url ?? item.data.source_url, ...(item.enrichment ? { enrichment: item.enrichment } : {}), ...(item.semantic ? {semantic:item.semantic}:{}), data }
 }
 
 // Bounded, credential-free fetching of configured publisher sites only.
@@ -114,6 +117,7 @@ export async function runSync(sources: Source[], apply: Apply | null, monitor?: 
       if (!items.length) throw new Error('Refusing empty source snapshot')
       if (new Set(items.map(item => item.external_id)).size !== items.length) throw new Error('Duplicate source IDs')
       summary.details = result.details
+      summary.semantic = result.semantic
       summary.candidates = items.length
       summary.posters = items.filter(item => item.data.cover_image_url).length
       summary.cancellations = items.filter(item => item.data.is_cancelled).length
@@ -195,12 +199,26 @@ async function main() {
     })
   }
   const sources = registry.filter(source => values.source === 'all' || values.source === source.id)
-    .map(source => ({ name: source.name, fetch: async () => enrichSource(await source.fetch(url => fetchText(url, source.hosts)), fetchOriginal) }))
+    .map(source => ({ name: source.name, fetch: async () => {
+      const base=await source.fetch(url => fetchText(url, source.hosts))
+      const mode=process.env.JEV_MODE
+      if(!['shadow','apply'].includes(mode||'')||!base.items.some(i=>i.related_url))return enrichSource(base,fetchOriginal)
+      const options={key:process.env.TYPESAFE_API_KEY||'',cacheDir:'.jev-cache'}
+      const evaluation=await evaluateJev(createJev({...options,maxRequests:12}))
+      console.log(JSON.stringify({semantic_evaluation:evaluation}))
+      const jev=createJev(options)
+      const result=await enrichSource(base,fetchOriginal,new Date(),evaluation.passed?{mode:mode as 'shadow'|'apply',select:jev.select}:undefined)
+      result.semantic={mode:mode!,evaluation_passed:evaluation.passed,stats:jev.stats,samples:result.items.flatMap(i=>(i.semantic||[]).map(a=>({external_id:i.external_id,outcome:a.outcome,relationship:a.relationship}))).slice(0,30)}
+      if(!evaluation.passed)result.warnings.push('Jev evaluation failed or API key unavailable; semantic enrichment disabled, calendar and rule-based updates continued')
+      if(jev.stats.failed||jev.stats.deferred)result.warnings.push(`Jev: ${jev.stats.failed} unavailable and ${jev.stats.deferred} budget-deferred decisions; previous enrichment retained where possible`)
+      return result
+    } }))
   const report = await runSync(sources, apply, monitor)
   await writeFile(values.report, `${JSON.stringify(report, null, 2)}\n`)
   if (process.env.GITHUB_STEP_SUMMARY) {
     const rows = report.sources.map(s => `| ${s.name} | ${s.status} | ${s.candidates} | ${s.posters} | ${s.changes?.inserted ?? '—'} | ${s.changes?.updated ?? '—'} | ${s.changes?.unchanged ?? '—'} |`)
     await appendFile(process.env.GITHUB_STEP_SUMMARY, `## Nightly event sync (${report.mode})\n\n| Source | Result | Candidates | Posters | New | Updated | Unchanged |\n|---|---|---:|---:|---:|---:|---:|\n${rows.join('\n')}\n\nSee the report artifact for conflicts and errors. Missing source records are never treated as cancellations.\n`)
+    for(const source of report.sources) if(source.semantic)await appendFile(process.env.GITHUB_STEP_SUMMARY,`\n### ${source.name}: Jev (${source.semantic.mode})\n\nEvaluation: ${source.semantic.evaluation_passed?'passed':'FAILED — fallback active'}\n\n\`\`\`json\n${JSON.stringify(source.semantic.stats,null,2)}\n\`\`\`\n`)
   }
   if (report.sources.some(source => source.status === 'failed')) process.exitCode = 1
 }

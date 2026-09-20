@@ -17,6 +17,7 @@ export interface EventData {
 }
 
 export interface Candidate {
+  semantic?: import('./semantic.ts').Audit[]
   listing_url?: string
   enrichment?: { status: 'enriched' | 'unavailable'; fields: string[]; base: Record<string, string | null>; chain: string[] }
   external_id: string
@@ -26,6 +27,7 @@ export interface Candidate {
 }
 
 export interface SourceResult {
+  semantic?: { mode:string; evaluation_passed:boolean; stats:Record<string,number>; samples:Array<{external_id:string;outcome:string;relationship?:string}> }
   details?: { checked: number; enriched: number; failed: number; skipped: number }
   items: Candidate[]
   warnings: string[]
