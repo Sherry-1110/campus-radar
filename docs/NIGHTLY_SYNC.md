@@ -190,4 +190,23 @@ No temporary or one-off workflow is required.
 
 Expansion checks: 31 automated tests, lint, typecheck and production build pass. Browser
 preview verified Healthy, Failed, Overdue and Stalled cards using temporary sample data.
-Expansion activation: pending the new hosted migration and first matrix apply run.
+Expansion activated on September 20, 2026: migration applied through the project SQL
+Editor after owner access was granted. Code `dbba8af` is on main; its CI passed.
+Cloudflare deployment `e90085bd-654a-4441-bba8-bb7cf54e4c3c` serves `/sources`.
+[First four-source apply run](https://github.com/Sherry-1110/campus-radar/actions/runs/35495820637)
+completed successfully in all four independent jobs:
+
+| Source | Candidates | Images | Inserted | Linked | Unchanged |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| PlanItPurple | 3,859 | 952 | 0 | 0 | 3,859 |
+| Bienen | 68 | 68 | 0 | 0 | 68 |
+| Choose Chicago | 7,976 | 7,758 | 7,912 | 64 | 0 |
+| The Garage | 14 | 0 | 14 | 0 | 0 |
+
+Choose Chicago reported 64 conflicts while linking existing event identities; the importer
+preserved existing content rather than overwriting without a source baseline. No source
+reported a failed run. Production API checks confirmed the four monitor records succeeded
+and the public key is denied the monitoring write RPC. Browser verification showed all four
+sources Healthy with correct counts and GitHub run links. A cached 50-event city sample
+also passed disposable PostgreSQL import/reimport with zero inserts or updates on the
+second identical run.
