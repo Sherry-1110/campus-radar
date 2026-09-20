@@ -74,4 +74,5 @@ test('semantic rollout distinguishes shadow, accepted evidence, rejection and bu
   const deferred=await enrichSource(source,fetchPage,now,{mode:'apply',select:limited.select})
   assert.equal(deferred.items[0].semantic?.[0].outcome,'deferred')
   assert.equal(deferred.details?.skipped,1)
+  assert.equal(deferred.items[0].enrichment?.status,'unavailable','Budget deferral must preserve previously verified enrichment')
 })

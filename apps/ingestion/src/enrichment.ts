@@ -129,7 +129,7 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
             ;(item.semantic??=[]).push(decision.audit)
             if(semantic.mode==='apply') {
               if(decision.audit.outcome==='failed'){failed=true;details.failed++}
-              if(decision.audit.outcome==='deferred')details.skipped++
+              if(decision.audit.outcome==='deferred'){failed=true;details.skipped++}
               // A model rejection/uncertainty never falls through to weaker matching.
               // On service/budget failure the existing rules remain available.
               if(!['failed','deferred'].includes(decision.audit.outcome)) extracted=decision.detail
