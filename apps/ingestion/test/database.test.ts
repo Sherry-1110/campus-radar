@@ -46,7 +46,9 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     const sync = async (items: unknown[], source = 'PlanItPurple') => {
       await db.exec('set role service_role')
       try {
-        const result = await db.query<{ result: Stats }>('select public.sync_source_events($1, $2::jsonb) as result', [source, JSON.stringify(items)])
+        const run = (await db.query<{ id: string }>('select public.begin_source_sync($1,null) as id', [source])).rows[0].id
+        const result = await db.query<{ result: Stats }>('select public.sync_source_events($1, $2::jsonb, $3) as result', [source, JSON.stringify(items), run])
+        await db.query("select public.finish_source_sync($1,'succeeded',$2::jsonb)", [run, JSON.stringify(result.rows[0].result)])
         return result.rows[0].result
       } finally { await db.exec('reset role') }
     }
@@ -124,10 +126,40 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     assert.equal(legacy.rows[0].is_all_day, true)
     assert.equal((await sync([second])).unchanged, 1)
 
+    // Health tracks whole-source attempts, not the last successful batch.
+    await db.exec('set role service_role')
+    const begin = async () => (await db.query<{ id: string }>("select public.begin_source_sync('PlanItPurple', null) as id")).rows[0].id
+    const finish = (id: string, status: string, summary: object = {}) => db.query('select public.finish_source_sync($1,$2,$3::jsonb)', [id, status, JSON.stringify(summary)])
+    const health = async () => (await db.query<{ status: string; last_success_at: string | null; error_code: string | null; candidates: number }>("select * from public.source_health where source_name='PlanItPurple'")).rows[0]
+    const run1 = await begin()
+    assert.equal((await health()).status, 'running')
+    await finish(run1, 'succeeded', { candidates: 2, posters: 1, inserted: 2 })
+    const successful = await health()
+    assert.ok(successful.last_success_at)
+    const run2 = await begin()
+    await assert.rejects(finish(run1, 'failed'), /stale/i, 'Old jobs cannot overwrite a newer attempt')
+    await assert.rejects(db.query('select public.sync_source_events($1,$2::jsonb,$3)', ['PlanItPurple', JSON.stringify([candidate]), run1]), /stale/i, 'Superseded runs cannot write event data')
+    await finish(run2, 'failed', { error_code: 'fetch_failed' })
+    assert.equal((await health()).status, 'failed')
+    assert.deepEqual((await health()).last_success_at, successful.last_success_at)
+    assert.equal((await health()).error_code, 'fetch_failed')
+    const run3 = await begin()
+    await assert.rejects(finish(run3, 'failed', { error_code: 'raw-secret-error' }), /check constraint/)
+    await finish(run3, 'failed', { error_code: 'sync_failed' })
+    await db.exec('reset role')
+    const city = structuredClone(candidate)
+    city.external_id = 'city-1'; city.data.title = 'City event'; city.data.source_url = 'https://www.choosechicago.com/event/test/'
+    assert.equal((await sync([city], 'Choose Chicago')).inserted, 1)
+    await assert.rejects(sync([city], 'Instagram (curated)'), /Unsupported|no rows/i)
+
     for (const role of ['anon', 'authenticated']) {
       await db.exec(`set role ${role}`)
-      await assert.rejects(db.query('select public.sync_source_events($1,$2::jsonb)', ['PlanItPurple', JSON.stringify([candidate])]), /permission denied/)
+      await assert.rejects(db.query('select public.sync_source_events($1,$2::jsonb,$3)', ['PlanItPurple', JSON.stringify([candidate]), run3]), /permission denied/)
       await assert.rejects(db.query('select * from private.ingestion_items'), /permission denied/)
+      assert.equal((await health()).status, 'failed', 'Public can read safe health')
+      await assert.rejects(db.query("select public.begin_source_sync('PlanItPurple',null)"), /permission denied/)
+      await assert.rejects(db.query("update public.source_health set status='succeeded'"), /permission denied/)
+
       await db.exec('reset role')
     }
 

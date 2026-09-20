@@ -2,12 +2,12 @@ import { appendFile, writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createClient } from '@supabase/supabase-js'
-import { fetchBienen, fetchPlanItPurple } from './sources.ts'
+import { sources as registry } from './registry.ts'
 import type { Candidate, SourceResult } from './types.ts'
 
 interface Source { name: string; fetch: () => Promise<SourceResult> }
 type Apply = (source: string, items: Candidate[]) => Promise<Record<string, number>>
-interface SourceSummary {
+export interface SourceSummary {
   name: string
   status: 'preview' | 'applied' | 'failed'
   candidates: number
@@ -16,6 +16,11 @@ interface SourceSummary {
   warnings: string[]
   changes?: Record<string, number>
   error?: string
+  error_code?: 'fetch_failed' | 'validation_failed' | 'sync_failed' | 'monitoring_failed'
+}
+interface Monitor {
+  start: (source: string) => Promise<string>
+  finish: (runId: string, summary: SourceSummary) => Promise<void>
 }
 
 const fields = ['title', 'description', 'cover_image_url', 'start_time', 'end_time', 'location',
@@ -53,15 +58,15 @@ export function normalizeCandidate(item: Candidate): Candidate {
   return { external_id: item.external_id, related_url: item.related_url, data }
 }
 
-// Bounded, credential-free fetching of the two known publisher sites only.
+// Bounded, credential-free fetching of configured publisher sites only.
 // Redirects are checked before following; feed content never chooses arbitrary hosts.
-export async function fetchText(url: string): Promise<string> {
+export async function fetchText(url: string, hosts = ['planitpurple.northwestern.edu', 'www.music.northwestern.edu']): Promise<string> {
   let last: unknown
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       let target = new URL(url)
       for (let redirects = 0; redirects < 5; redirects++) {
-        if (target.protocol !== 'https:' || !['planitpurple.northwestern.edu', 'www.music.northwestern.edu'].includes(target.hostname)
+        if (target.protocol !== 'https:' || !hosts.includes(target.hostname)
           || target.username || target.password || target.port) throw new Error('Unapproved source URL')
         const response = await fetch(target, {
           headers: { 'User-Agent': 'CampusRadar/1.0 (+https://campus-radar.com)', Accept: 'application/json, application/xml, text/html;q=0.9' },
@@ -91,12 +96,17 @@ export async function fetchText(url: string): Promise<string> {
   throw last
 }
 
-export async function runSync(sources: Source[], apply: Apply | null) {
+export async function runSync(sources: Source[], apply: Apply | null, monitor?: Monitor) {
   const summaries: SourceSummary[] = []
   for (const source of sources) {
     const summary: SourceSummary = { name: source.name, status: 'failed', candidates: 0, posters: 0, cancellations: 0, warnings: [] }
+    let runId: string | undefined
+    let phase: SourceSummary['error_code'] = 'monitoring_failed'
     try {
+      if (apply && monitor) runId = await monitor.start(source.name)
+      phase = 'fetch_failed'
       const result = await source.fetch()
+      phase = 'validation_failed'
       const items = result.items.map(normalizeCandidate)
       if (!items.length) throw new Error('Refusing empty source snapshot')
       if (new Set(items.map(item => item.external_id)).size !== items.length) throw new Error('Duplicate source IDs')
@@ -105,11 +115,20 @@ export async function runSync(sources: Source[], apply: Apply | null) {
       summary.cancellations = items.filter(item => item.data.is_cancelled).length
       // Summarize missing images by count; retain actionable parsing/access warnings.
       summary.warnings = result.warnings.filter(warning => !warning.includes('missing poster'))
+      phase = 'sync_failed'
       if (apply) summary.changes = await apply(source.name, items)
       summary.status = apply ? 'applied' : 'preview'
     } catch (error) {
       // Never log HTTP request objects, auth headers, or raw source payloads.
       summary.error = error instanceof Error ? error.message : 'Source sync failed'
+      summary.error_code = phase
+    }
+    if (runId && monitor) {
+      try { await monitor.finish(runId, summary) } catch (error) {
+        summary.status = 'failed'
+        summary.error_code = 'monitoring_failed'
+        summary.error = `${summary.error ? `${summary.error}; ` : ''}Health recording failed: ${error instanceof Error ? error.message : 'unknown error'}`
+      }
     }
     summaries.push(summary)
     console.log(`${source.name}: ${summary.status}; ${summary.candidates} events, ${summary.posters} with posters${summary.error ? `; ${summary.error}` : ''}`)
@@ -138,25 +157,41 @@ async function main() {
     source: { type: 'string', default: 'all' }, report: { type: 'string', default: 'sync-report.json' },
   } })
   if (values.apply && values['dry-run']) throw new Error('Choose --apply or --dry-run')
-  if (!['all', 'planitpurple', 'bienen'].includes(values.source)) throw new Error('Unknown --source')
+  if (!['all', ...registry.map(source => source.id)].includes(values.source)) throw new Error('Unknown --source')
   let apply: Apply | null = null
+  let monitor: Monitor | undefined
   if (values.apply) {
     const url = process.env.SUPABASE_URL
     const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !key) throw new Error('Apply requires SUPABASE_URL and a backend Supabase secret')
     if (key.startsWith('sb_publishable_')) throw new Error('A publishable key cannot run the importer')
     const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+    const runIds = new Map<string, string>()
+    monitor = {
+      start: async source => {
+        const runUrl = process.env.GITHUB_RUN_ID ? `https://github.com/Sherry-1110/campus-radar/actions/runs/${process.env.GITHUB_RUN_ID}` : null
+        const { data, error } = await client.rpc('begin_source_sync', { p_source_name: source, p_run_url: runUrl })
+        if (error) throw new Error(`Cannot start source monitor: ${error.code}`)
+        runIds.set(source, data as string)
+        return data as string
+      },
+      finish: async (runId, summary) => {
+        const { error } = await client.rpc('finish_source_sync', {
+          p_run_id: runId, p_status: summary.status === 'applied' ? 'succeeded' : 'failed',
+          p_summary: { ...summary.changes, candidates: summary.candidates, posters: summary.posters, error_code: summary.error_code },
+        })
+        if (error) throw new Error(`Cannot finish source monitor: ${error.code}`)
+      },
+    }
     apply = (source, items) => writeBatches(source, items, async (name, batch) => {
-      const { data, error } = await client.rpc('sync_source_events', { p_source_name: name, p_items: batch })
+      const { data, error } = await client.rpc('sync_source_events', { p_source_name: name, p_items: batch, p_run_id: runIds.get(name) })
       if (error) throw new Error(`Database sync ${error.code}: ${error.message}`)
       return data as Record<string, number>
     })
   }
-  const sources = [
-    { id: 'planitpurple', name: 'PlanItPurple', fetch: () => fetchPlanItPurple(fetchText) },
-    { id: 'bienen', name: 'Bienen School of Music', fetch: () => fetchBienen(fetchText) },
-  ].filter(source => values.source === 'all' || values.source === source.id)
-  const report = await runSync(sources, apply)
+  const sources = registry.filter(source => values.source === 'all' || values.source === source.id)
+    .map(source => ({ name: source.name, fetch: () => source.fetch(url => fetchText(url, source.hosts)) }))
+  const report = await runSync(sources, apply, monitor)
   await writeFile(values.report, `${JSON.stringify(report, null, 2)}\n`)
   if (process.env.GITHUB_STEP_SUMMARY) {
     const rows = report.sources.map(s => `| ${s.name} | ${s.status} | ${s.candidates} | ${s.posters} | ${s.changes?.inserted ?? '—'} | ${s.changes?.updated ?? '—'} | ${s.changes?.unchanged ?? '—'} |`)

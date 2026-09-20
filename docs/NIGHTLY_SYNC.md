@@ -2,9 +2,9 @@
 
 ## Implementation plan
 
-Implement the approved PlanIt Purple + Bienen pipeline as a nightly reconciliation job. Fetch upcoming events and a recent-history overlap, compare normalized source snapshots using stable occurrence IDs, insert new events, and update only changed source fields. Explicit cancellations remain visible as canceled; missing events are never automatically canceled or deleted. Preserve manual edits when a source changes a field already edited by a curator. Use source-provided poster images, with the existing category fallback when none is available.
+Implement the PlanIt Purple, Bienen, Choose Chicago, and The Garage pipeline as a nightly reconciliation job. Fetch upcoming events and a recent-history overlap, compare normalized source snapshots using stable occurrence IDs, insert new events, and update only changed source fields. Explicit cancellations remain visible as canceled; missing events are never automatically canceled or deleted. Preserve manual edits when a source changes a field already edited by a curator. Use source-provided poster images, with the existing category fallback when none is available.
 
-Run nightly at 08:17 UTC (03:17 Chicago daylight time / 02:17 standard time), with a manual dry-run option and non-overlapping runs. Newly imported official events are published; moderation changes to existing events are preserved. No social sources or AI extraction are part of this job.
+Run nightly at 08:17 UTC (03:17 Chicago daylight time / 02:17 standard time), with a manual dry-run option and non-overlapping runs. Newly imported source events are published; moderation changes to existing events are preserved. No social sources or AI extraction are part of this job.
 
 1. Add tested source parsers using the observed XML/JSON formats, source IDs, date offsets, explicit cancellation markers, event images, and Bienen detail-page locations. Reject malformed feeds and candidates before writes.
 2. Add private source snapshots and a service-only database RPC with atomic batches. Test first insert, unchanged rerun, edits, date change, cancellation/reinstatement, manual edits, duplicates, missing records, and unauthorized calls.
@@ -36,7 +36,7 @@ npm run sync:events -- --dry-run --source bienen
 Dry-run reads the sources and reports validated event/image counts without database
 access. It is a coverage preview, not a prediction of database insert/update counts.
 The summary is written to `apps/ingestion/sync-report.json` by default. `--report`
-can choose another path. `--source` accepts `all`, `planitpurple`, or `bienen`.
+can choose another path. `--source` accepts `all`, `planitpurple`, `bienen`, `choose-chicago`, or `garage`.
 
 For writes, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (modern `sb_secret_…` key)
 or `SUPABASE_SERVICE_ROLE_KEY` (legacy backend JWT) in the trusted environment, then:
@@ -47,7 +47,8 @@ npm run sync:events -- --apply
 
 For GitHub Actions:
 
-1. Apply pending migrations, including `20260920120000_nightly_event_sync.sql`.
+1. Apply pending migrations, including `20260920120000_nightly_event_sync.sql` and
+   `20260920180000_source_monitoring.sql`.
    The project URL is already configured in the workflow. A backend API key alone
    cannot perform schema migrations; use the Supabase SQL Editor or an authenticated CLI.
 2. Set one of the backend keys as a repository Actions secret with the matching name.
@@ -59,7 +60,8 @@ For GitHub Actions:
 
 The workflow has a 30-minute timeout, serializes overlapping runs, and retains
 summary artifacts for 14 days. A failed source produces a failed job but does not
-prevent the other source from syncing. GitHub schedules are best-effort and can
+prevent any other source from syncing. Each adapter runs in its own matrix job with
+`fail-fast: false`; logs and report artifacts are named by source. GitHub schedules are best-effort and can
 disable after 60 days of public-repository inactivity; check source freshness and
 Actions status if updates stop. No artificial keepalive commits are generated.
 
@@ -83,7 +85,8 @@ Actions status if updates stop. No artificial keepalive commits are generated.
   Removed listings require organizer confirmation/manual action; their absence is not
   turned into a fabricated status update.
 - Canonical event links and exact title/time/location matches merge cross-source copies.
-  Bienen outranks PlanIt Purple for matching concerts. Ambiguous fuzzy matches are not merged.
+  Authority is configured on `sources`: direct organizers (30) outrank PlanIt Purple (10),
+  which outranks city aggregators (5). Ambiguous fuzzy matches are not merged.
 - Changed source fields update only when the current field still equals the previous
   source value. Curator corrections and moderation status are retained. Explicit
   cancellation takes precedence; conflict counts flag preserved manual fields.
@@ -92,8 +95,8 @@ Actions status if updates stop. No artificial keepalive commits are generated.
 - Unchanged candidates do not write the event, provenance row, or private snapshot.
   The source timestamp and private batch summaries still advance. Therefore
   `event_sources.last_seen_at` is not a nightly freshness signal. `sources.last_fetched_at`
-  indicates the last committed batch, while the GitHub run/report is authoritative
-  for completion of the entire source; a partially failed run is never reported as healthy.
+  indicates the last committed batch, while `source_health` and the GitHub run/report describe completion
+  of the entire source. A partially failed run is never reported as healthy.
 - Stored text respects database length limits; longer text is abbreviated with an
   ellipsis and the original source remains linked. Unknown fees display “See details.”
 - Images are source-hosted event images, not copied or AI-generated posters. Missing
@@ -131,3 +134,60 @@ Actions status if updates stop. No artificial keepalive commits are generated.
   Browser verification showed real imported cards, all-day labels, and a canceled
   event detail with cancellation messaging and no ordinary add-to-calendar action. The production
   build retains the pre-existing warning about a client chunk larger than 500 kB.
+
+
+## Source modules and central monitoring (September 20 expansion)
+
+Each adapter lives in `apps/ingestion/src/sources/`; common parsing helpers contain no
+source orchestration. `registry.ts` connects the adapter, stable CLI key, database name,
+and allowed network hosts. Adapters load only when selected. A source cannot fetch arbitrary URLs or the other sources'
+hosts. Each scheduled matrix job has its own process and 30-minute limit. Tests run in
+CI; nightly jobs only install and sync, so a source-specific test failure does not prevent
+unrelated production sources from running.
+
+| Adapter | Coverage | Source identity | Posters |
+| --- | --- | --- | --- |
+| `planitpurple` | Publisher's full future feed plus 90-day archive | PiP occurrence ID | Feed image |
+| `bienen` | All available future performances plus 90 days back | Instance/paragraph/node ID | Drupal featured image |
+| `choose-chicago` | Requests 90 days back through 365 days forward; actual archive availability varies | API occurrence ID | API event image |
+| `garage` | Available calendar, ignoring events ended more than 90 days ago | iCalendar UID; recurring original local start | Event page image, excluding generic provider artwork |
+
+Choose Chicago uses its public Events Calendar REST endpoint, with full 50-item
+pagination. Missing pages, duplicate IDs, changing totals, invalid dates or more than
+20,000 records fail the source explicitly instead of silently truncating. Live verification:
+7,976 occurrences, 7,758 images, 990 explicitly free, zero cancellation markers, 160 pages
+in 252 seconds. Although the requested lookback started June 22, the publisher returned
+nothing before August 19. Listings outside the configured window or removed by a publisher
+cannot be reconciled from that snapshot; absence never fabricates cancellation.
+
+The Garage uses the public [AddEvent calendar](https://www.addevent.com/calendar/Id622001)
+and its linked [iCalendar feed](https://www.addevent.com/feed/eehiaisow.ics). Live verification:
+14 occurrences, 12 upcoming, no cancellations, no genuine posters. Attendance restrictions
+(e.g. resident teams only) remain in descriptions. The observed finite single-weekday
+recurrence rules, recurrence exceptions and exclusions are supported with DST-aware times;
+an unsupported rule fails visibly. Truncated publisher descriptions remain linked to the
+original listing. Wirtz and PawPrint already overlap the broad PlanIt Purple import; adding
+another scraper for those calendars would duplicate coverage.
+
+`/sources` is the central monitor. It refreshes every minute and shows latest attempt,
+last full success, counts, posters, change counts and a GitHub run link. Healthy means a
+successful full run within 36 hours. Running attempts over an hour become Stalled; older
+successes become Overdue. Failures remain Failed even when an earlier run was successful.
+Dry runs never change production monitoring. If recording health itself fails, the job fails
+and the previous status eventually becomes stale; consult GitHub if database access is down.
+
+The public table contains only timestamps, numeric counts, fixed error codes and repository
+run URLs. Anonymous/authenticated clients can read it but cannot write it or call the
+service-only monitoring functions. Raw errors stay in job logs/reports. Beginning a new
+attempt retains the previous success time; an older run cannot overwrite a newer run's
+result or write further event batches; every batch validates its current run ID. Hard-killed jobs remain Running then Stalled. This is latest-state monitoring;
+14-day GitHub artifacts provide per-run history, rather than an additional log service.
+
+To add another source: implement and test one adapter; register its key/name/allowed hosts;
+add a migration registering its `adapter_key` and authority on `sources`; add the key to
+the existing workflow matrix. Preview it first, then apply using the same recurring workflow.
+No temporary or one-off workflow is required.
+
+Expansion checks: 31 automated tests, lint, typecheck and production build pass. Browser
+preview verified Healthy, Failed, Overdue and Stalled cards using temporary sample data.
+Expansion activation: pending the new hosted migration and first matrix apply run.

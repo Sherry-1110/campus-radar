@@ -36,7 +36,7 @@ export function Layout() {
 
       <footer className="border-t border-line bg-surface">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-8 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>Campus Radar · Events for Northwestern students.</p>
+          <p>Campus Radar · Events for Northwestern students. <Link to="/sources" className="underline hover:text-brand-700">Source status</Link></p>
           <p>An independent student project, not affiliated with Northwestern University.</p>
         </div>
       </footer>

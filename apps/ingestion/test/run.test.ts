@@ -54,3 +54,34 @@ test('large sources use bounded database transactions and report partial failure
     return { inserted: batch.length }
   }), /100 candidates committed.*safe to retry.*statement timeout/i)
 })
+
+
+test('monitor records failures independently, skips previews, and detects monitoring failures', async () => {
+  const calls: string[] = []
+  const monitor = {
+    start: async (name: string) => { calls.push(`start:${name}`); return name },
+    finish: async (id: string, summary: { status: string; error_code?: string }) => { calls.push(`finish:${id}:${summary.status}:${summary.error_code}`) },
+  }
+  const sources = [{ name: 'Broken', fetch: async () => { throw new Error('private detail') } }]
+  await runner.runSync(sources, null, monitor)
+  assert.deepEqual(calls, [], 'Previews must not overwrite production health')
+  const report = await runner.runSync(sources, async () => ({}), monitor)
+  assert.deepEqual(calls, ['start:Broken', 'finish:Broken:failed:fetch_failed'])
+  assert.equal(report.sources[0].status, 'failed')
+  const unavailable = await runner.runSync(sources, async () => ({}), {
+    start: async () => { throw new Error('monitor unavailable') }, finish: monitor.finish,
+  })
+  assert.equal(unavailable.sources[0].error_code, 'monitoring_failed')
+  const later = await runner.runSync(sources, async () => ({}), {
+    start: monitor.start, finish: async () => { throw new Error('database offline') },
+  })
+  assert.equal(later.sources[0].error_code, 'monitoring_failed')
+  assert.match(later.sources[0].error!, /private detail.*Health recording failed/, 'Keep the original failure in private logs')
+})
+
+
+test('network allowlists and source registry keep adapters isolated', async () => {
+  const { sources } = await import('../src/registry.ts')
+  assert.equal(new Set(sources.map(source => source.id)).size, sources.length)
+  await assert.rejects(runner.fetchText('https://www.choosechicago.com/events/', ['planitpurple.northwestern.edu']), /Unapproved/)
+})

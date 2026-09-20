@@ -39,6 +39,17 @@ export type Database = {
   }
   public: {
     Tables: {
+      source_health: {
+        Row: {
+          source_name: string; run_id: string; status: 'running' | 'succeeded' | 'failed'
+          started_at: string; completed_at: string | null; last_success_at: string | null
+          run_url: string | null; candidates: number; posters: number; inserted: number
+          updated: number; unchanged: number; linked: number; conflicts: number; error_code: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       event_sources: {
         Row: {
           event_id: string
@@ -278,6 +289,8 @@ export type Database = {
       }
       sources: {
         Row: {
+          adapter_key: string | null
+          authority: number
           created_at: string
           fetch_interval: string
           id: string
@@ -289,6 +302,8 @@ export type Database = {
           url: string | null
         }
         Insert: {
+          adapter_key?: string | null
+          authority?: number
           created_at?: string
           fetch_interval?: string
           id?: string
@@ -300,6 +315,8 @@ export type Database = {
           url?: string | null
         }
         Update: {
+          adapter_key?: string | null
+          authority?: number
           created_at?: string
           fetch_interval?: string
           id?: string
@@ -392,7 +409,7 @@ export type Database = {
         Returns: string
       }
       sync_source_events: {
-        Args: { p_source_name: string; p_items: Json }
+        Args: { p_source_name: string; p_items: Json; p_run_id: string }
         Returns: Json
       }
     }

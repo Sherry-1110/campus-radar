@@ -20,6 +20,11 @@ concurrency:
 
 jobs:
   sync:
+    name: Sync ${{ matrix.source }}
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [planitpurple, bienen, choose-chicago, garage]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -29,7 +34,6 @@ jobs:
           node-version-file: apps/web/.nvmrc
           cache: npm
       - run: npm ci
-      - run: npm test
       - name: Fetch and reconcile source events
         env:
           SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
@@ -38,14 +42,14 @@ jobs:
           APPLY: ${{ github.event_name == 'schedule' || inputs.apply }}
         run: |
           if [ "$APPLY" = "true" ]; then
-            npm run sync:events -- --apply
+            npm run sync:events -- --apply --source "${{ matrix.source }}"
           else
-            npm run sync:events -- --dry-run
+            npm run sync:events -- --dry-run --source "${{ matrix.source }}"
           fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: event-sync-report
+          name: event-sync-report-${{ matrix.source }}
           path: apps/ingestion/sync-report.json
           if-no-files-found: ignore
           retention-days: 14
