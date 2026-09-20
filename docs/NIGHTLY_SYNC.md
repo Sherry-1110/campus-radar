@@ -245,3 +245,19 @@ Optional page failures do not stop calendar updates. Reports also count checks d
 budget; counts describe this run, not total stored enriched events. Images remain source-hosted;
 not every organizer supplies a poster. JavaScript-only or access-restricted pages are skipped;
 there is no generic agent or login bypass in this version. This uses the existing nightly workflow.
+
+Activation checks on September 20: 45 tests, typecheck, lint, build and GitHub CI passed.
+The migration was applied through Supabase SQL Editor; public RPC writes remain denied.
+Code `6ab4094` was deployed as Cloudflare version `824ac42f-0b7e-4e11-9aa7-19db19b5fa89`.
+The first enriched [nightly workflow run](https://github.com/Sherry-1110/campus-radar/actions/runs/35496826587)
+checked 1,054 PlanIt Purple occurrences, matched organizer details for 283, updated 180 stored
+events, and left 3,679 unchanged, with no conflicts. Image coverage grew from 952 to 1,014.
+Its 91 unavailable page checks did not block the calendar sync and appear on `/sources`.
+Browser verification confirmed a recovered image, additional organizer text, preserved
+occurrence time and both attribution links on the live massage-special event.
+All four jobs completed successfully. Choose Chicago checked 2,751 occurrences and enriched
+743, with 740 stored events updated and 7,236 unchanged. Image coverage rose from 7,758 to
+7,769; four conflicts preserved existing edits. It reported 355 unavailable checks and
+2,364 checks deferred by the 400-page budget, which rotates on later nights. Bienen's 68
+and The Garage's 14 existing events stayed unchanged. The production monitor confirms all
+four sources succeeded and exposes enrichment counts independently of calendar health.
