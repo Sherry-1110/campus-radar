@@ -1,0 +1,51 @@
+name: Nightly event sync
+
+on:
+  schedule:
+    # 03:17 Chicago during daylight time; 02:17 during standard time.
+    - cron: '17 8 * * *'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Write events to Supabase (false previews source coverage only)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-event-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Fetch and reconcile source events
+        env:
+          SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          APPLY: ${{ github.event_name == 'schedule' || inputs.apply }}
+        run: |
+          if [ "$APPLY" = "true" ]; then
+            npm run sync:events -- --apply
+          else
+            npm run sync:events -- --dry-run
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: event-sync-report
+          path: apps/ingestion/sync-report.json
+          if-no-files-found: ignore
+          retention-days: 14

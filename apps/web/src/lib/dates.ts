@@ -122,8 +122,9 @@ export function eventTag(startIso: string, endIso: string | null, now = new Date
   return sameChicagoDay(start, tomorrow) ? 'Tomorrow' : null
 }
 
-export function formatWhenShort(startIso: string, endIso: string | null): string {
+export function formatWhenShort(startIso: string, endIso: string | null, allDay = false): string {
   const start = new Date(startIso)
+  if (allDay) return `${dayFormat.format(start)} · All day`
   const time = timeFormat.format(start)
   return `${dayFormat.format(start)} · ${time}${endIso ? ` – ${endTime(start, new Date(endIso))}` : ''}`
 }
@@ -134,11 +135,11 @@ function endTime(start: Date, end: Date): string {
     : `${dayFormat.format(end)}, ${timeFormat.format(end)}`
 }
 
-export function formatWhenLong(startIso: string, endIso: string | null) {
+export function formatWhenLong(startIso: string, endIso: string | null, allDay = false) {
   const start = new Date(startIso)
   const end = endIso ? new Date(endIso) : null
   return {
     date: longDayFormat.format(start),
-    time: end ? `${timeFormat.format(start)} – ${endTime(start, end)}` : timeFormat.format(start),
+    time: allDay ? 'All day' : end ? `${timeFormat.format(start)} – ${endTime(start, end)}` : timeFormat.format(start),
   }
 }

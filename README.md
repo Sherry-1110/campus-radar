@@ -23,6 +23,24 @@ npm run dev                           # http://localhost:5173
 
 Other root scripts: `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run types:db` (regenerate `apps/web/src/lib/database.types.ts` after a schema change). Inside `apps/web` the same scripts work directly (`cd apps/web && npm run dev`).
 
+## Nightly event sync
+
+PlanIt Purple and Bienen ingestion lives in `apps/ingestion`. The workflow runs at
+08:17 UTC daily (02:17 or 03:17 Chicago time) and can also be run manually.
+It inserts new official events, updates changed fields/cancellations, and leaves
+unchanged events untouched. Source posters are used when available.
+
+```sh
+npm test
+npm run sync:events -- --dry-run  # public sources only; no database writes
+# Backend environment only: SUPABASE_URL plus SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
+npm run sync:events -- --apply
+```
+
+Apply the database migrations and configure the corresponding GitHub repository
+secret before enabling writes. See [nightly sync operations](docs/NIGHTLY_SYNC.md)
+for activation, source coverage, authority, and failure behavior.
+
 The database currently holds sample events tagged `demo`. Remove them before launch with:
 
 ```sql

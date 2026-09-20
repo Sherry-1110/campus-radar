@@ -17,6 +17,8 @@ export type EventListItem = Pick<
   | 'is_free'
   | 'fee_text'
   | 'category'
+  | 'is_cancelled'
+  | 'is_all_day'
 >
 
 export interface EventFilters {
@@ -28,7 +30,7 @@ export interface EventFilters {
 
 const PAGE_SIZE = 12
 const LIST_COLUMNS =
-  'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category'
+  'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,is_cancelled,is_all_day'
 // Events without an end time count as "ongoing" for this long after they start.
 const OPEN_ENDED_GRACE_MS = 2 * 60 * 60 * 1000
 

@@ -96,6 +96,8 @@ export type Database = {
           fee_text: string | null
           id: string
           is_free: boolean
+          is_cancelled: boolean
+          is_all_day: boolean
           location: string | null
           location_url: string | null
           school_id: string
@@ -119,6 +121,8 @@ export type Database = {
           fee_text?: string | null
           id?: string
           is_free?: boolean
+          is_cancelled?: boolean
+          is_all_day?: boolean
           location?: string | null
           location_url?: string | null
           school_id: string
@@ -142,6 +146,8 @@ export type Database = {
           fee_text?: string | null
           id?: string
           is_free?: boolean
+          is_cancelled?: boolean
+          is_all_day?: boolean
           location?: string | null
           location_url?: string | null
           school_id?: string
@@ -384,6 +390,10 @@ export type Database = {
           p_title: string
         }
         Returns: string
+      }
+      sync_source_events: {
+        Args: { p_source_name: string; p_items: Json }
+        Returns: Json
       }
     }
     Enums: {

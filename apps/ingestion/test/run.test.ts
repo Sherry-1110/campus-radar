@@ -1,0 +1,39 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import * as runner from '../src/run.ts'
+
+test('runner validates data, reports partial failure, and never writes in dry-run mode', async () => {
+  assert.equal(typeof runner.runSync, 'function', 'runSync must exist')
+  const item = {
+    external_id: '123', related_url: null,
+    data: { title: 'Concert', description: 'a'.repeat(5100), cover_image_url: null,
+      start_time: '2026-10-03T00:30:00.000Z', end_time: null, location: null, location_url: null,
+      is_free: false, fee_text: null, category: 'music' as const, is_cancelled: false,
+      is_all_day: false, source_url: 'https://planitpurple.northwestern.edu/event/123' },
+  }
+  let writes = 0
+  const sources = [
+    { name: 'PlanItPurple', fetch: async () => ({ items: [item], warnings: [] }) },
+    { name: 'Bienen School of Music', fetch: async () => { throw new Error('HTTP 503') } },
+  ]
+  const apply = async () => { writes++; return { inserted: 1 } }
+  const preview = await runner.runSync(sources, null)
+  assert.equal(writes, 0)
+  assert.equal(preview.sources[0].candidates, 1)
+  assert.equal(preview.sources[0].posters, 0)
+  assert.equal(preview.sources[0].status, 'preview')
+  assert.equal(preview.sources[1].status, 'failed')
+  const applied = await runner.runSync(sources, apply)
+  assert.equal(writes, 1, 'One failing source must not stop the other')
+  assert.equal(applied.sources[0].status, 'applied')
+  assert.equal(applied.sources[1].status, 'failed')
+  const normalized = runner.normalizeCandidate(item)
+  assert.ok(normalized.data.description!.length <= 5000)
+  assert.equal(normalized.data.is_free, false)
+  assert.throws(() => runner.normalizeCandidate({ ...item, data: { ...item.data, start_time: 'yesterday' } }), /date/i)
+  assert.throws(() => runner.normalizeCandidate({ ...item, data: { ...item.data, end_time: '2026-10-01T00:00:00Z' } }), /end/i)
+  assert.throws(() => runner.normalizeCandidate({ ...item, data: { ...item.data, cover_image_url: 'javascript:alert(1)' } }), /URL/i)
+  const empty = await runner.runSync([{ name: 'PlanItPurple', fetch: async () => ({ items: [], warnings: [] }) }], apply)
+  assert.equal(empty.sources[0].status, 'failed')
+  assert.equal(writes, 1, 'Empty feed must not call the writer')
+})

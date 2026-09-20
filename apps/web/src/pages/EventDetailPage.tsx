@@ -79,7 +79,7 @@ export function EventDetailPage() {
 type EventWithSources = NonNullable<ReturnType<typeof useEvent>['data']>
 
 function EventDetail({ event }: { event: EventWithSources }) {
-  const when = formatWhenLong(event.start_time, event.end_time)
+  const when = formatWhenLong(event.start_time, event.end_time, event.is_all_day)
   const pageUrl = window.location.href
   const [copied, setCopied] = useState(false)
 
@@ -110,6 +110,11 @@ function EventDetail({ event }: { event: EventWithSources }) {
       </div>
 
       <div className="flex flex-col gap-6">
+        {event.is_cancelled && (
+          <p role="status" className="rounded-xl bg-red-100 p-4 font-semibold text-red-800">
+            This event has been canceled. Check the organizer’s source page for updates.
+          </p>
+        )}
         <header className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <CategoryChip category={event.category} />
@@ -157,7 +162,7 @@ function EventDetail({ event }: { event: EventWithSources }) {
         </dl>
 
         <div className="flex flex-wrap gap-3">
-          <a
+          {!event.is_cancelled && <a
             href={googleCalendarUrl(event, pageUrl)}
             target="_blank"
             rel="noopener noreferrer"
@@ -166,10 +171,10 @@ function EventDetail({ event }: { event: EventWithSources }) {
             <CalendarPlus className="mr-2 size-4" aria-hidden="true" />
             Add to Google Calendar
             <span className="sr-only">(opens in a new tab)</span>
-          </a>
+          </a>}
           <button type="button" onClick={() => downloadIcs(event, pageUrl)} className={buttonSecondary}>
             <Download className="size-4" aria-hidden="true" />
-            Download .ics
+            {event.is_cancelled ? 'Download cancellation (.ics)' : 'Download .ics'}
           </button>
           <button type="button" onClick={copyLink} className={buttonSecondary}>
             {copied ? (

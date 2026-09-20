@@ -8,7 +8,7 @@ import { Poster } from './Poster'
 
 export function EventCard({ event }: { event: EventListItem }) {
   const badge = badgeParts(event.start_time)
-  const tag = eventTag(event.start_time, event.end_time)
+  const tag = event.is_cancelled ? 'Canceled' : eventTag(event.start_time, event.end_time)
 
   return (
     <Link
@@ -32,7 +32,7 @@ export function EventCard({ event }: { event: EventListItem }) {
           {tag && (
             <span
               className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                tag === 'Happening now' ? 'bg-accent text-ink' : 'bg-accent-soft text-amber-900'
+                event.is_cancelled ? 'bg-red-100 text-red-800' : tag === 'Happening now' ? 'bg-accent text-ink' : 'bg-accent-soft text-amber-900'
               }`}
             >
               {tag}
@@ -46,7 +46,7 @@ export function EventCard({ event }: { event: EventListItem }) {
 
         <p className="flex items-center gap-2 text-sm text-ink-muted">
           <Clock className="size-4 shrink-0" aria-hidden="true" />
-          <span>{formatWhenShort(event.start_time, event.end_time)}</span>
+          <span>{formatWhenShort(event.start_time, event.end_time, event.is_all_day)}</span>
         </p>
         {event.location && (
           <p className="flex items-center gap-2 text-sm text-ink-muted">

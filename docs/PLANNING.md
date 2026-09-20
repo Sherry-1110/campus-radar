@@ -1,5 +1,7 @@
 # Campus Radar — Planning
 
+> Research update (September 20, 2026): [Source feasibility and ingestion deployment](SOURCE_FEASIBILITY.md) supersedes this document's source-access and ingestion-hosting assumptions, particularly Eventbrite discovery, social APIs, and Cloudflare ingestion limits. The implementation roadmap below has not yet been revised to adopt those recommendations.
+
 Local-life / event-discovery platform for Northwestern students (multi-school later). Aggregates events from public sources and user submissions, displays them Eventbrite-style.
 
 ## Product idea
