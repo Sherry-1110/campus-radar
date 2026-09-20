@@ -120,3 +120,14 @@ Actions status if updates stop. No artificial keepalive commits are generated.
 - Hosted verification caught a statement timeout on the initial 3,859-item PlanIt
   Purple transaction. The permanent runner now uses 100-item transactions, covered
   by a batching/partial-failure regression test. No temporary repair workflow was added.
+- Activation verified: hosted columns/RPC and backend secret work; the public key is
+  denied RPC execution. [Successful hosted run](https://github.com/Sherry-1110/campus-radar/actions/runs/35493999927)
+  completed at 06:21 UTC: PlanIt Purple inserted 3,803 events and linked 56 occurrences;
+  Bienen's 68 previously imported performances were all unchanged (zero updates).
+  The report recorded 15 conflicts while linking existing records; preserved content
+  was not forcibly overwritten. Review source snapshots before changing such records.
+- All 15 automated tests, lint, typecheck, and GitHub CI pass. Production web build and
+  deployment succeeded; Cloudflare version `b3fd22aa-c272-4493-b0bf-7ddb8bf0f659`.
+  Browser verification showed real imported cards, all-day labels, and a canceled
+  event detail with cancellation messaging and no ordinary add-to-calendar action. The production
+  build retains the pre-existing warning about a client chunk larger than 500 kB.

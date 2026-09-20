@@ -49,7 +49,11 @@ delete from public.events where 'demo' = any(tags);
 
 ## Status
 
-The database schema is live and the web app (`apps/web`) has the event browse page (search, filters) and event detail page. The live site at https://campus-radar.com still serves the earlier React/Vite starter until someone runs `npm run deploy` (see below). The follow-up poster/deduplication migration (`20260920040000`) is committed but not yet applied to Supabase; run `npx supabase db push` before relying on it. Login, event submission, admin review, and GitHub auto-deployment are still pending.
+The database schema and web app are live at https://campus-radar.com, including
+event browsing, search/filters, detail pages, source posters, and cancellation/all-day
+display. The nightly PlanIt Purple and Bienen workflow is active and its first complete
+hosted import succeeded on September 20, 2026. Login, event submission, admin review,
+and Cloudflare GitHub auto-deployment are still pending.
 
 To change the schema, add a new file with `npx supabase migration new <name>`, then `npx supabase db push`. Don't edit migrations that have already been applied.
 
