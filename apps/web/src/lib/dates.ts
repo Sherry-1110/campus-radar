@@ -41,38 +41,16 @@ export function chicagoMidnight(year: number, month: number, day: number): Date 
   return new Date(guess - tzOffsetMs(new Date(first)))
 }
 
-export type WhenFilter = 'any' | 'today' | 'weekend' | 'week' | 'month'
-
-export const WHEN_OPTIONS: { value: WhenFilter; label: string }[] = [
-  { value: 'any', label: 'Any time' },
-  { value: 'today', label: 'Today' },
-  { value: 'weekend', label: 'This weekend' },
-  { value: 'week', label: 'Next 7 days' },
-  { value: 'month', label: 'Next 30 days' },
-]
-
-export function getRange(when: WhenFilter, now: Date): { from: Date; to: Date | null } {
+/** Today's date in Chicago as YYYY-MM-DD (the value format of <input type="date">). */
+export function chicagoDateString(now: Date): string {
   const p = zonedParts(now)
-  const dow = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay()
-  const midnight = (offsetDays: number) => chicagoMidnight(p.year, p.month, p.day + offsetDays)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}`
+}
 
-  switch (when) {
-    case 'today':
-      return { from: now, to: midnight(1) }
-    case 'week':
-      return { from: now, to: midnight(7) }
-    case 'month':
-      return { from: now, to: midnight(30) }
-    case 'weekend': {
-      if (dow === 0) return { from: now, to: midnight(1) }
-      if (dow === 6) return { from: now, to: midnight(2) }
-      const untilSat = 6 - dow
-      const from = midnight(untilSat)
-      return { from: from > now ? from : now, to: midnight(untilSat + 2) }
-    }
-    default:
-      return { from: now, to: null }
-  }
+export function startOfChicagoDay(now: Date): Date {
+  const p = zonedParts(now)
+  return chicagoMidnight(p.year, p.month, p.day)
 }
 
 const dayFormat = new Intl.DateTimeFormat('en-US', {
@@ -102,24 +80,24 @@ function sameChicagoDay(a: Date, b: Date): boolean {
   return pa.year === pb.year && pa.month === pb.month && pa.day === pb.day
 }
 
+const weekdayFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' })
+
 export function badgeParts(iso: string) {
   const d = new Date(iso)
-  return { month: monthFormat.format(d).toUpperCase(), day: dayNumFormat.format(d) }
+  return {
+    month: monthFormat.format(d).toUpperCase(),
+    day: dayNumFormat.format(d),
+    weekday: weekdayFormat.format(d),
+  }
 }
 
-export type EventTag = 'Happening now' | 'Today' | 'Tomorrow'
-
-const OPEN_ENDED_MS = 2 * 60 * 60 * 1000
-
-export function eventTag(startIso: string, endIso: string | null, now = new Date()): EventTag | null {
-  const start = new Date(startIso)
-  const end = endIso ? new Date(endIso) : new Date(start.getTime() + OPEN_ENDED_MS)
-  if (start <= now && now <= end) return 'Happening now'
-  if (start < now) return null
-  if (sameChicagoDay(start, now)) return 'Today'
-  const p = zonedParts(now)
-  const tomorrow = chicagoMidnight(p.year, p.month, p.day + 1)
-  return sameChicagoDay(start, tomorrow) ? 'Tomorrow' : null
+/** Clock time only (no date or weekday), for compact event cards. */
+export function formatTimeOnly(startIso: string, endIso: string | null, allDay = false): string {
+  if (allDay) return 'All day'
+  const start = timeFormat.format(new Date(startIso))
+  if (!endIso) return start
+  const end = timeFormat.format(new Date(endIso))
+  return end === start ? start : `${start} – ${end}`
 }
 
 export function formatWhenShort(startIso: string, endIso: string | null, allDay = false): string {

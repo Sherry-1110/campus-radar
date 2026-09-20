@@ -4,9 +4,12 @@ import { useEffect, useState } from 'react'
 interface SearchBoxProps {
   value: string
   onChange: (value: string) => void
+  autoFocus?: boolean
+  /** Called after the user submits with Enter or the Search button. */
+  onSubmitted?: () => void
 }
 
-export function SearchBox({ value, onChange }: SearchBoxProps) {
+export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBoxProps) {
   const [draft, setDraft] = useState(value)
   const [prevValue, setPrevValue] = useState(value)
 
@@ -28,8 +31,9 @@ export function SearchBox({ value, onChange }: SearchBoxProps) {
       onSubmit={(e) => {
         e.preventDefault()
         onChange(draft)
+        onSubmitted?.()
       }}
-      className="flex w-full items-center gap-2 rounded-2xl bg-white p-1.5 shadow-card-hover"
+      className="flex w-full items-center gap-2 rounded-2xl border border-line bg-white p-1.5 shadow-card"
     >
       <label htmlFor="event-search" className="sr-only">
         Search events
@@ -37,6 +41,7 @@ export function SearchBox({ value, onChange }: SearchBoxProps) {
       <Search className="ml-3 size-5 shrink-0 text-ink-muted" aria-hidden="true" />
       <input
         id="event-search"
+        autoFocus={autoFocus}
         type="search"
         inputMode="search"
         enterKeyHint="search"

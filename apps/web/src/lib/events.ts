@@ -1,8 +1,14 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import type { EventCategory } from './categories'
-import type { WhenFilter } from './dates'
-import { getRange } from './dates'
 import type { Database } from './database.types'
+import { startOfChicagoDay } from './dates'
+import {
+  ALL_REGIONS,
+  ALL_SCOPES,
+  categoryClause,
+  matchesNothing,
+  timeRanges,
+  type EventFilters,
+} from './filters'
 import { supabase } from './supabase'
 
 export type EventRow = Database['public']['Tables']['events']['Row']
@@ -17,46 +23,52 @@ export type EventListItem = Pick<
   | 'is_free'
   | 'fee_text'
   | 'category'
+  | 'area'
+  | 'neighborhood'
   | 'is_cancelled'
   | 'is_all_day'
 >
 
-export interface EventFilters {
-  q: string
-  category: EventCategory | null
-  when: WhenFilter
-  freeOnly: boolean
-}
-
 const PAGE_SIZE = 12
 const LIST_COLUMNS =
-  'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,is_cancelled,is_all_day'
-// Events without an end time count as "ongoing" for this long after they start.
-const OPEN_ENDED_GRACE_MS = 2 * 60 * 60 * 1000
+  'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,neighborhood,is_cancelled,is_all_day'
 
 export function useEvents(filters: EventFilters) {
   return useInfiniteQuery({
     queryKey: ['events', filters],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
-      const { from, to } = getRange(filters.when, new Date())
-      const fromIso = from.toISOString()
-      const graceIso = new Date(from.getTime() - OPEN_ENDED_GRACE_MS).toISOString()
+      // An empty selection in any filter can match nothing; skip the request.
+      if (matchesNothing(filters)) return { items: [] as EventListItem[], next: null }
 
+      const now = new Date()
       let query = supabase
         .from('events')
-        .select(LIST_COLUMNS, { count: 'exact' })
+        .select(LIST_COLUMNS)
         .eq('status', 'published')
-        .or(`end_time.gte.${fromIso},and(end_time.is.null,start_time.gte.${graceIso})`)
+        // Only today and later, by Chicago calendar date.
+        .gte('start_time', startOfChicagoDay(now).toISOString())
 
-      if (to) query = query.lt('start_time', to.toISOString())
-      if (filters.category) query = query.eq('category', filters.category)
+      const ranges = timeRanges(filters, now)
+      if (!(ranges.length === 1 && ranges[0].to === null)) {
+        const clauses = ranges.map((r) => {
+          const from = `start_time.gte.${r.from.toISOString()}`
+          return r.to ? `and(${from},start_time.lt.${r.to.toISOString()})` : from
+        })
+        query = query.or(clauses.join(','))
+      }
+
+      if (filters.scopes.length < ALL_SCOPES.length) query = query.in('area', filters.scopes)
+      if (filters.regions.length < ALL_REGIONS.length) query = query.in('region', filters.regions)
+
+      const categories = categoryClause(filters.categories)
+      if (categories.kind === 'some') query = query.in('category', categories.dbCategories)
       if (filters.freeOnly) query = query.eq('is_free', true)
 
       const term = filters.q.replace(/[,()"\\%*:]/g, ' ').replace(/\s+/g, ' ').trim()
       if (term) query = query.or(`title.ilike.*${term}*,search.wfts(english).${term}`)
 
-      const { data, error, count } = await query
+      const { data, error } = await query
         .order('start_time', { ascending: true })
         .order('id', { ascending: true })
         .range(pageParam, pageParam + PAGE_SIZE - 1)
@@ -64,7 +76,6 @@ export function useEvents(filters: EventFilters) {
       if (error) throw error
       return {
         items: data satisfies EventListItem[],
-        total: count ?? 0,
         next: data.length === PAGE_SIZE ? pageParam + PAGE_SIZE : null,
       }
     },

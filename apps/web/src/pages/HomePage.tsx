@@ -1,10 +1,10 @@
-import { CalendarX, CloudOff } from 'lucide-react'
+import { CalendarX, CloudOff, ListChecks } from 'lucide-react'
 import { useCallback } from 'react'
 import { EventCard, EventCardSkeleton } from '@/components/EventCard'
 import { FilterBar } from '@/components/FilterBar'
-import { SearchBox } from '@/components/SearchBox'
 import { buttonPrimary, buttonSecondary, StateMessage } from '@/components/StateMessage'
 import { useEvents } from '@/lib/events'
+import { matchesNothing } from '@/lib/filters'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { useFilters } from '@/lib/useFilters'
 
@@ -15,42 +15,21 @@ export function HomePage() {
   const setQuery = useCallback((q: string) => update({ q }), [update])
 
   const items = query.data?.pages.flatMap((p) => p.items) ?? []
-  const total = query.data?.pages[0]?.total ?? 0
+  const nothingSelected = matchesNothing(filters)
 
   return (
-    <>
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-900 via-brand-800 to-brand-600 text-white">
-        <div className="absolute -right-24 -top-24 size-80 rounded-full bg-white/5" aria-hidden="true" />
-        <div className="absolute -bottom-32 left-1/3 size-72 rounded-full bg-accent/10" aria-hidden="true" />
-        <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-10 sm:pb-14 sm:pt-14">
-          <h1 className="max-w-2xl text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            What&rsquo;s happening around Northwestern
-          </h1>
-          <p className="mt-3 max-w-xl text-base text-brand-100 sm:text-lg">
-            Concerts, talks, fitness classes and more, gathered in one place so you never miss out.
-          </p>
-          <div className="mt-6 max-w-2xl">
-            <SearchBox value={filters.q} onChange={setQuery} />
-          </div>
-        </div>
-      </section>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <h1 className="sr-only">Campus Radar events</h1>
 
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
-        <FilterBar filters={filters} onChange={update} />
+      <FilterBar filters={filters} onChange={update} onSearch={setQuery} />
 
-        <div className="mb-4 mt-6 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-bold sm:text-2xl" aria-live="polite">
-            {query.isPending
-              ? 'Loading events…'
-              : `${total} upcoming ${total === 1 ? 'event' : 'events'}`}
-          </h2>
-          {isFiltered && (
-            <button type="button" onClick={clear} className={buttonSecondary}>
-              Clear filters
-            </button>
-          )}
-        </div>
+      <p className="sr-only" role="status" aria-live="polite">
+        {query.isPending
+          ? 'Loading events'
+          : `${items.length}${query.hasNextPage ? ' or more' : ''} events shown`}
+      </p>
 
+      <div className="mt-6">
         {query.isPending && (
           <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Loading events">
             {Array.from({ length: 8 }, (_, i) => (
@@ -78,19 +57,27 @@ export function HomePage() {
 
         {query.isSuccess && items.length === 0 && (
           <StateMessage
-            icon={CalendarX}
-            title={isFiltered ? 'No events match your filters' : 'No upcoming events yet'}
+            icon={nothingSelected ? ListChecks : CalendarX}
+            title={
+              nothingSelected
+                ? 'Nothing selected'
+                : isFiltered
+                  ? 'No events match your filters'
+                  : 'No upcoming events yet'
+            }
             action={
               isFiltered ? (
                 <button type="button" onClick={clear} className={buttonPrimary}>
-                  Clear filters
+                  Reset filters
                 </button>
               ) : undefined
             }
           >
-            {isFiltered
-              ? 'Try a different date, category, or search term.'
-              : 'Check back soon, new events are added regularly.'}
+            {nothingSelected
+              ? 'Pick at least one option in every filter to see events.'
+              : isFiltered
+                ? 'Try a different place, date, category, or search term.'
+                : 'Check back soon, new events are added regularly.'}
           </StateMessage>
         )}
 
@@ -118,6 +105,6 @@ export function HomePage() {
           </>
         )}
       </div>
-    </>
+    </div>
   )
 }

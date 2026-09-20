@@ -1,47 +1,37 @@
 import {
-  Briefcase,
   Dumbbell,
   GraduationCap,
-  HeartPulse,
-  Music,
   Palette,
   PartyPopper,
   Sparkles,
   Utensils,
   type LucideIcon,
 } from 'lucide-react'
-import type { Database } from './database.types'
+import { CATEGORY_GROUPS, groupOf, type CategoryGroup, type DbCategory } from './categoryGroups'
 
-export type EventCategory = Database['public']['Enums']['event_category']
+export type EventCategory = DbCategory
 
 interface CategoryMeta {
-  value: EventCategory
+  value: CategoryGroup
   label: string
   icon: LucideIcon
   gradient: string
 }
 
-export const CATEGORIES: CategoryMeta[] = [
-  { value: 'arts', label: 'Arts', icon: Palette, gradient: 'from-fuchsia-500 to-purple-700' },
-  { value: 'music', label: 'Music', icon: Music, gradient: 'from-indigo-500 to-violet-800' },
-  { value: 'sports', label: 'Sports', icon: Dumbbell, gradient: 'from-emerald-500 to-teal-700' },
-  { value: 'academic', label: 'Academic', icon: GraduationCap, gradient: 'from-sky-500 to-blue-800' },
-  { value: 'career', label: 'Career', icon: Briefcase, gradient: 'from-slate-500 to-slate-800' },
-  { value: 'social', label: 'Social', icon: PartyPopper, gradient: 'from-pink-500 to-rose-700' },
-  { value: 'wellness', label: 'Wellness', icon: HeartPulse, gradient: 'from-lime-600 to-green-800' },
-  { value: 'food', label: 'Food', icon: Utensils, gradient: 'from-orange-500 to-red-700' },
-  { value: 'other', label: 'Other', icon: Sparkles, gradient: 'from-violet-400 to-purple-700' },
-]
-
-const BY_VALUE = Object.fromEntries(CATEGORIES.map((c) => [c.value, c])) as Record<
-  EventCategory,
-  CategoryMeta
->
-
-export function categoryMeta(value: EventCategory): CategoryMeta {
-  return BY_VALUE[value]
+const LOOK: Record<CategoryGroup, { icon: LucideIcon; gradient: string }> = {
+  arts: { icon: Palette, gradient: 'from-fuchsia-500 to-purple-700' },
+  sports: { icon: Dumbbell, gradient: 'from-emerald-500 to-teal-700' },
+  academic: { icon: GraduationCap, gradient: 'from-sky-500 to-blue-800' },
+  social: { icon: PartyPopper, gradient: 'from-pink-500 to-rose-700' },
+  food: { icon: Utensils, gradient: 'from-orange-500 to-red-700' },
+  other: { icon: Sparkles, gradient: 'from-violet-400 to-purple-700' },
 }
 
-export function isCategory(value: string | null): value is EventCategory {
-  return value !== null && value in BY_VALUE
+const BY_GROUP = Object.fromEntries(
+  CATEGORY_GROUPS.map((g) => [g.value, { ...g, ...LOOK[g.value] }]),
+) as unknown as Record<CategoryGroup, CategoryMeta>
+
+/** Look and label for an event's category (music shows as Arts, etc.). */
+export function categoryMeta(category: EventCategory): CategoryMeta {
+  return BY_GROUP[groupOf(category)]
 }

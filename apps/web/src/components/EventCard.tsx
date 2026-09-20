@@ -1,14 +1,15 @@
 import { Clock, MapPin } from 'lucide-react'
 import { Link } from 'react-router'
-import { badgeParts, eventTag, formatWhenShort } from '@/lib/dates'
+import { badgeParts, formatTimeOnly, formatWhenShort } from '@/lib/dates'
 import type { EventListItem } from '@/lib/events'
-import { CategoryChip } from './CategoryChip'
-import { FeeBadge } from './FeeBadge'
+import { cardFee } from '@/lib/fee'
+import { cardPlace } from '@/lib/place'
 import { Poster } from './Poster'
 
 export function EventCard({ event }: { event: EventListItem }) {
   const badge = badgeParts(event.start_time)
-  const tag = event.is_cancelled ? 'Canceled' : eventTag(event.start_time, event.end_time)
+  const place = cardPlace(event)
+  const fee = cardFee(event)
 
   return (
     <Link
@@ -17,47 +18,41 @@ export function EventCard({ event }: { event: EventListItem }) {
     >
       <div className="relative aspect-[4/3] bg-brand-100">
         <Poster src={event.cover_image_url} title={event.title} category={event.category} />
+
         <div
-          className="absolute left-3 top-3 flex min-w-12 flex-col items-center rounded-xl bg-white px-2 py-1 leading-none shadow-card"
+          className="absolute left-3 top-3 flex size-12 flex-col items-center justify-center gap-0.5 rounded-lg bg-white leading-none shadow-card"
           aria-hidden="true"
         >
-          <span className="text-[11px] font-bold tracking-wider text-brand-600">{badge.month}</span>
-          <span className="text-xl font-extrabold text-ink">{badge.day}</span>
+          <span className="text-[10px] font-bold tracking-wide text-brand-600">{badge.month}</span>
+          <span className="text-lg font-extrabold leading-none text-ink">{badge.day}</span>
+          <span className="text-[10px] font-semibold text-ink-muted">{badge.weekday}</span>
         </div>
+
+        {fee && (
+          <span className="absolute right-3 top-3 line-clamp-2 max-w-[55%] text-right text-sm font-bold leading-tight text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.9),0_0_10px_rgb(0_0_0/0.45)]">
+            {fee}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <CategoryChip category={event.category} />
-          {tag && (
-            <span
-              className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                event.is_cancelled ? 'bg-red-100 text-red-800' : tag === 'Happening now' ? 'bg-accent text-ink' : 'bg-accent-soft text-amber-900'
-              }`}
-            >
-              {tag}
-            </span>
-          )}
-        </div>
-
         <h3 className="line-clamp-2 text-lg font-bold leading-snug text-ink group-hover:text-brand-700">
           {event.title}
         </h3>
 
-        <p className="flex items-center gap-2 text-sm text-ink-muted">
-          <Clock className="size-4 shrink-0" aria-hidden="true" />
-          <span>{formatWhenShort(event.start_time, event.end_time, event.is_all_day)}</span>
+        <span className="sr-only">
+          {formatWhenShort(event.start_time, event.end_time, event.is_all_day)}
+        </span>
+        <p className="flex items-center gap-2 text-sm text-ink-muted" aria-hidden="true">
+          <Clock className="size-4 shrink-0" />
+          <span>{formatTimeOnly(event.start_time, event.end_time, event.is_all_day)}</span>
         </p>
-        {event.location && (
+        {place && (
           <p className="flex items-center gap-2 text-sm text-ink-muted">
             <MapPin className="size-4 shrink-0" aria-hidden="true" />
-            <span className="line-clamp-1">{event.location}</span>
+            <span className="line-clamp-1">{place}</span>
           </p>
         )}
-
-        <div className="mt-auto pt-2">
-          <FeeBadge event={event} />
-        </div>
       </div>
     </Link>
   )
@@ -71,7 +66,6 @@ export function EventCardSkeleton() {
     >
       <div className="aspect-[4/3] bg-brand-100" />
       <div className="flex flex-col gap-3 p-4">
-        <div className="h-5 w-20 rounded-full bg-brand-100" />
         <div className="h-5 w-full rounded bg-brand-100" />
         <div className="h-5 w-2/3 rounded bg-brand-100" />
         <div className="h-4 w-1/2 rounded bg-brand-50" />

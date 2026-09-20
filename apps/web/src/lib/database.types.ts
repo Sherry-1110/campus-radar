@@ -39,18 +39,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      source_health: {
-        Row: {
-          source_name: string; run_id: string; status: 'running' | 'succeeded' | 'failed'
-          started_at: string; completed_at: string | null; last_success_at: string | null
-          run_url: string | null; candidates: number; posters: number; inserted: number
-          detail_checked: number; detail_enriched: number; detail_failed: number
-          updated: number; unchanged: number; linked: number; conflicts: number; error_code: string | null
-        }
-        Insert: never
-        Update: never
-        Relationships: []
-      }
       event_sources: {
         Row: {
           event_id: string
@@ -98,6 +86,7 @@ export type Database = {
       }
       events: {
         Row: {
+          area: Database["public"]["Enums"]["event_area"]
           category: Database["public"]["Enums"]["event_category"]
           cover_image_url: string | null
           created_at: string
@@ -107,11 +96,13 @@ export type Database = {
           end_time: string | null
           fee_text: string | null
           id: string
-          is_free: boolean
-          is_cancelled: boolean
           is_all_day: boolean
+          is_cancelled: boolean
+          is_free: boolean
           location: string | null
           location_url: string | null
+          neighborhood: string | null
+          region: Database["public"]["Enums"]["event_region"]
           school_id: string
           search: unknown
           source_id: string | null
@@ -123,6 +114,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          area: Database["public"]["Enums"]["event_area"]
           category?: Database["public"]["Enums"]["event_category"]
           cover_image_url?: string | null
           created_at?: string
@@ -132,11 +124,13 @@ export type Database = {
           end_time?: string | null
           fee_text?: string | null
           id?: string
-          is_free?: boolean
-          is_cancelled?: boolean
           is_all_day?: boolean
+          is_cancelled?: boolean
+          is_free?: boolean
           location?: string | null
           location_url?: string | null
+          neighborhood?: string | null
+          region: Database["public"]["Enums"]["event_region"]
           school_id: string
           search?: unknown
           source_id?: string | null
@@ -148,6 +142,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          area?: Database["public"]["Enums"]["event_area"]
           category?: Database["public"]["Enums"]["event_category"]
           cover_image_url?: string | null
           created_at?: string
@@ -157,11 +152,13 @@ export type Database = {
           end_time?: string | null
           fee_text?: string | null
           id?: string
-          is_free?: boolean
-          is_cancelled?: boolean
           is_all_day?: boolean
+          is_cancelled?: boolean
+          is_free?: boolean
           location?: string | null
           location_url?: string | null
+          neighborhood?: string | null
+          region?: Database["public"]["Enums"]["event_region"]
           school_id?: string
           search?: unknown
           source_id?: string | null
@@ -288,6 +285,77 @@ export type Database = {
         }
         Relationships: []
       }
+      source_health: {
+        Row: {
+          candidates: number
+          completed_at: string | null
+          conflicts: number
+          detail_checked: number
+          detail_enriched: number
+          detail_failed: number
+          error_code: string | null
+          inserted: number
+          last_success_at: string | null
+          linked: number
+          posters: number
+          run_id: string
+          run_url: string | null
+          source_name: string
+          started_at: string
+          status: string
+          unchanged: number
+          updated: number
+        }
+        Insert: {
+          candidates?: number
+          completed_at?: string | null
+          conflicts?: number
+          detail_checked?: number
+          detail_enriched?: number
+          detail_failed?: number
+          error_code?: string | null
+          inserted?: number
+          last_success_at?: string | null
+          linked?: number
+          posters?: number
+          run_id: string
+          run_url?: string | null
+          source_name: string
+          started_at: string
+          status: string
+          unchanged?: number
+          updated?: number
+        }
+        Update: {
+          candidates?: number
+          completed_at?: string | null
+          conflicts?: number
+          detail_checked?: number
+          detail_enriched?: number
+          detail_failed?: number
+          error_code?: string | null
+          inserted?: number
+          last_success_at?: string | null
+          linked?: number
+          posters?: number
+          run_id?: string
+          run_url?: string | null
+          source_name?: string
+          started_at?: string
+          status?: string
+          unchanged?: number
+          updated?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_health_source_name_fkey"
+            columns: ["source_name"]
+            isOneToOne: true
+            referencedRelation: "sources"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
       sources: {
         Row: {
           adapter_key: string | null
@@ -393,6 +461,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      begin_source_sync: {
+        Args: { p_run_url?: string; p_source_name: string }
+        Returns: string
+      }
+      finish_source_sync: {
+        Args: { p_run_id: string; p_status: string; p_summary: Json }
+        Returns: undefined
+      }
       submit_event: {
         Args: {
           p_category?: Database["public"]["Enums"]["event_category"]
@@ -410,11 +486,12 @@ export type Database = {
         Returns: string
       }
       sync_source_events: {
-        Args: { p_source_name: string; p_items: Json; p_run_id: string }
+        Args: { p_items: Json; p_run_id: string; p_source_name: string }
         Returns: Json
       }
     }
     Enums: {
+      event_area: "campus" | "nearby"
       event_category:
         | "arts"
         | "music"
@@ -425,6 +502,7 @@ export type Database = {
         | "wellness"
         | "food"
         | "other"
+      event_region: "evanston" | "chicago" | "between" | "other"
       event_status: "draft" | "pending_review" | "published" | "rejected"
       review_status: "pending" | "approved" | "rejected"
       source_type:
@@ -563,6 +641,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      event_area: ["campus", "nearby"],
       event_category: [
         "arts",
         "music",
@@ -574,6 +653,7 @@ export const Constants = {
         "food",
         "other",
       ],
+      event_region: ["evanston", "chicago", "between", "other"],
       event_status: ["draft", "pending_review", "published", "rejected"],
       review_status: ["pending", "approved", "rejected"],
       source_type: [

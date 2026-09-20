@@ -67,14 +67,14 @@ No public third-party scraping API; scraping risks account bans and ToS violatio
 
 ## Data model (Supabase / Postgres — implemented)
 
-Source of truth is `supabase/migrations/`; this is the target schema summary. The initial schema is live since 2026-09-19; the 20260920040000 poster/deduplication fix still needs to be applied to the hosted database.
+Source of truth is `supabase/migrations/`; this is the target schema summary. The initial schema is live since 2026-09-19; the 20260920040000 poster/deduplication fix was applied to the hosted database on 2026-09-20.
 
 | Table | Purpose |
 |---|---|
 | `schools` | Launch market (Northwestern seeded) with `email_domain` used for verification; keeps multi-school expansion cheap |
 | `profiles` | 1:1 with `auth.users`, created by trigger. `role` (student/curator/admin), `school_id`, `is_school_verified` (true only for a *confirmed* email on the school's domain or a subdomain) |
 | `sources` | Where events come from: `type` (calendar_scrape / social_manual / user_upload / eventbrite_api), `url`, `fetch_interval`, `last_fetched_at`, `is_active`. Seeded with 9 sources |
-| `events` | Title, description, cover image, `start_time`/`end_time` (timestamptz, display in America/Chicago), location, `is_free`/`fee_text`, `category` (enum), `tags[]`, `status` (draft/pending_review/published/rejected), `created_by`. Generated columns: `dedupe_key` (normalized title + start minute + normalized location; unique per school as an exact-duplicate backstop) and `search` (tsvector) |
+| `events` | Title, description, cover image, `start_time`/`end_time` (timestamptz, display in America/Chicago), location, `is_free`/`fee_text`, `category` (enum), `tags[]`, `status` (draft/pending_review/published/rejected), `created_by`, and place fields `area` (`campus`/`nearby`), `region` (`evanston`/`chicago`/`between`/`other`) and `neighborhood`, which a trigger derives from `location` and the source feed (heuristics; write them explicitly to override). Generated columns: `dedupe_key` (normalized title + start minute + normalized location; unique per school as an exact-duplicate backstop) and `search` (tsvector) |
 | `event_sources` | Provenance: every source that reported an event (`source_id`, `external_id`, `source_url`, first/last seen). Unique on `(source_id, external_id)` for scraper upserts; dedupe merges here instead of discarding |
 | `submissions` | Review record for user-submitted events; approving/rejecting it publishes/rejects the event and stamps `reviewed_by`/`reviewed_at` via trigger |
 | `mailing_list_subscribers` | `email`, `frequency`, `categories[]`, `confirmed_at`, `unsubscribe_token`; anon can insert only |
@@ -97,9 +97,12 @@ Categories: arts, music, sports, academic, career, social, wellness, food, other
 - [x] Supabase project created and linked (`lqirwngvveapraatpibe`)
 - [x] Schema, RLS, storage bucket, seed data applied and tested (see Data model)
 - [x] Monorepo scaffold: npm workspaces, `apps/web` (Vite + React + TS + Tailwind v4 + TanStack Query + React Router), GitHub Actions CI
-- [x] Web: browse page (search, date/category/free filters, load-more), event detail page (add to calendar, .ics, copy link), 15 sample events tagged `demo`
+- [x] Web: browse page (four multi-select dropdown filters: From on campus/nearby, Time, Category, Location; a separate Free only checkbox; a search icon that opens the search field; only today and later), compact event cards, event detail page (add to calendar, .ics, copy link)
+- [x] Place fields (`area`, `region`, `neighborhood`) added by migration `event_place_filters`, applied via the Supabase MCP (recorded remotely as version `20260920074510`)
+- [ ] Repair the remote migration history: `20260920120000`, `20260920180000` and `20260920210000` were applied outside the CLI and are not recorded, so `supabase db push` would try to re-apply them (`supabase migration repair --status applied <version>`)
+- [ ] Decide the final names for the "From" filter and the "In between" location option
 - [x] Cloudflare Workers (Static Assets) config and a manual deployment on `campus-radar.com` (currently the starter page; redeploy to publish the real app)
-- [ ] Apply migration `20260920040000` (poster permissions, location-aware dedupe) to the hosted database
+- [x] Apply migration `20260920040000` (poster permissions, location-aware dedupe) to the hosted database
 - [ ] Ingestion scaffold: `apps/ingestion`
 - [ ] Cloudflare GitHub integration authorized by the repository owner, auto-deploy on push
 
