@@ -226,6 +226,11 @@ venue, price, cancellation and attendance restrictions. A production's multi-day
 date range never replaces an individual performance time. Generic calendars, unrelated events,
 login pages and generic logos are not accepted as event details. Matching uses conservative
 title/date heuristics, so some valid pages will be skipped until a source-specific parser is needed.
+Shortened organizer titles can also be corroborated by substantial matching calendar-description
+phrases within one article paragraph, plus a meaningful shared title word. This handles the
+Sheil Mass page linked from PiP event 645684 without accepting an unrelated title, a weekday-only
+schedule for Sunday Mass, or contradictory structured event dates. Regression coverage includes
+the missing organizer image and additional visit details; calendar occurrence times remain intact.
 
 The original organizer becomes the event's primary source link; `event_sources` retains the
 discovery listing, and event details display both. Verified field provenance and the visited chain

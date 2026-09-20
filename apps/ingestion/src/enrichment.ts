@@ -12,6 +12,13 @@ function matches(a: string, b: string) {
   const x=words(a), y=new Set(words(b))
   return x.length>0 && (x.join(' ')===[...y].join(' ') || x.length>=3 && x.filter(w=>y.has(w)).length/x.length>=0.8)
 }
+function descriptionMatches(reference: string, passage: string) {
+  const pairs=(s:string)=>{const w=words(s);return new Set(w.slice(1).map((v,i)=>`${w[i]} ${v}`))}
+  const expected=pairs(reference), actual=pairs(passage)
+  // ponytail: conservative text corroboration for shortened titles; dedicated parsers
+  // are still needed when an organizer rewrites both the title and description.
+  return expected.size>=16 && [...expected].filter(pair=>actual.has(pair)).length/expected.size>=0.75
+}
 function link(value: unknown, base: string): string | null {
   const raw=string(value).trim()
   if(!raw) return null
@@ -54,13 +61,17 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   const event=matching.length===1?matching[0]:undefined
   if(events.length && !event) return null
   const heading=$('meta[property="og:title"]').attr('content')||$('h1').first().text()||$('title').text()
-  if(!event && !matches(item.data.title,heading)) return null
   const body=$('article .sidearm-story-body, .sidearm-story-body, [itemprop="articleBody"], article').first().clone()
   body.find('script,style,nav,header,footer,aside,form,button,[aria-hidden="true"]').remove()
+  const titleWords=new Set(words(heading))
+  const corroborated=$('article').length===1 && words(item.data.title).some(w=>w.length>=4 && !['campus','event','events','calendar'].includes(w) && titleWords.has(w))
+    && body.find('p').toArray().some(el=>descriptionMatches(item.data.description||'',text($(el).html())))
+  const pageMatches=matches(item.data.title,heading)||corroborated
+  if(!event && !pageMatches) return null
   const article=text(body.html())
   // Visible article content is often newer than stale article metadata.
   const description=event ? text(event.description) : article.length>=80 ? article : text($('meta[property="og:description"]').attr('content')||$('meta[name="description"]').attr('content'))
-  const poster=image(event?.image,pageUrl)||(matches(item.data.title,heading)?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
+  const poster=image(event?.image,pageUrl)||(pageMatches?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
   const next=event?[event.url,...(Array.isArray(event.sameAs)?event.sameAs:[event.sameAs])].map(v=>link(v,pageUrl)).filter((v):v is string=>Boolean(v&&v!==pageUrl)):[]
   for(const a of body.find('a[href]').toArray()) {
     if(/^(?:more (?:info(?:rmation)?|details)|full details|event website|official (?:event|website)|learn more)$/i.test(text($(a).text()))) {

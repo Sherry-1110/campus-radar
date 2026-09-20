@@ -49,3 +49,20 @@ test('follows explicitly labeled more-info links only after matching the parent 
   const page=`<meta property="og:title" content="${item.data.title}"><article><a href="/full">More information</a><a href="/tickets">Buy tickets</a></article>`
   assert.deepEqual(extractDetail(page,item.related_url!,item)?.next,['https://organizer.org/full'])
 })
+
+test('corroborates shortened organizer titles with specific calendar description text',async()=>{
+  const candidate={...item,external_id:'645684',related_url:'https://sheilcatholiccenter.org/worship/mass/',data:{...item.data,
+    title:'Catholic Mass, Evanston Campus',
+    description:"During the academic year, Mass is celebrated on Sundays at 9:30 a.m., 11:00 a.m., and 5:00 p.m. in Sheil's Evanston chapel located at 2110 Sheridan Road."}}
+  const sunday="Evanston Campus: During the academic year, Mass is celebrated on Sundays at 9:30 a.m. (livestreamed here), 11:00 a.m., and 5:00 p.m. in Sheil's Evanston chapel."
+  const weekday="Evanston Campus: During the academic year, Mass is celebrated Monday through Friday at 5:00 p.m. in Sheil's Evanston chapel."
+  const page=`<meta property="og:title" content="Mass - Sheil Catholic Center"><meta property="og:image" content="/mass-photo.jpg"><article><h1>Mass</h1><h2>Sunday Mass</h2><p>${sunday}</p><h2>Weekday Mass</h2><p>${weekday}</p><h2>Prepare for Your Visit</h2><p>Weekend parking is available in the Northwestern lot across Sheridan Road.</p></article>`
+  const result=await enrichSource({items:[candidate],warnings:[]},async url=>({url,html:page}),new Date('2026-09-20'))
+  assert.equal(result.items[0].data.cover_image_url,'https://sheilcatholiccenter.org/mass-photo.jpg')
+  assert.match(result.items[0].data.description!,/Weekend parking/)
+  assert.equal(result.items[0].data.start_time,candidate.data.start_time)
+  assert.equal(result.items[0].data.source_url,candidate.related_url)
+  assert.equal(extractDetail(page.replace(`<p>${sunday}</p>`,''),candidate.related_url,candidate),null,'Weekday schedule alone does not corroborate Sunday Mass')
+  assert.equal(extractDetail(page.replace('Mass - Sheil Catholic Center','Campus news'),candidate.related_url,candidate),null,'Shared boilerplate cannot override an unrelated page title')
+  assert.equal(extractDetail(page+html({...event,name:candidate.data.title,startDate:'2024-01-01'}),candidate.related_url,candidate),null,'Contradictory structured event dates still reject the page')
+})
