@@ -7,7 +7,7 @@ Implement the approved PlanIt Purple + Bienen pipeline as a nightly reconciliati
 Run nightly at 08:17 UTC (03:17 Chicago daylight time / 02:17 standard time), with a manual dry-run option and non-overlapping runs. Newly imported official events are published; moderation changes to existing events are preserved. No social sources or AI extraction are part of this job.
 
 1. Add tested source parsers using the observed XML/JSON formats, source IDs, date offsets, explicit cancellation markers, event images, and Bienen detail-page locations. Reject malformed feeds and candidates before writes.
-2. Add private source snapshots and an atomic, service-only database RPC. Test first insert, unchanged rerun, edits, date change, cancellation/reinstatement, manual edits, duplicates, missing records, and unauthorized calls.
+2. Add private source snapshots and a service-only database RPC with atomic batches. Test first insert, unchanged rerun, edits, date change, cancellation/reinstatement, manual edits, duplicates, missing records, and unauthorized calls.
 3. Add a Node 24 runner with dry-run/apply modes, retries, per-source isolation, source freshness and run summaries. Keep credentials in backend secrets.
 4. Show canceled/all-day events accurately in existing cards/details/calendar exports. Verify frontend and ingestion tests, lint, typecheck, build, and a real-feed dry run.
 5. Apply the migration and configure/verify GitHub scheduling where account permissions permit. Record any remaining activation steps and actual run results here.
@@ -72,9 +72,12 @@ Actions status if updates stop. No artificial keepalive commits are generated.
 - IDs identify occurrences, not titles or dates. Bienen recurring performances use
   their instance/paragraph ID. Source data is normalized before comparison; fetch time
   and unrelated website metadata are excluded.
-- Each source applies atomically through a service-only RPC. Missing fields, malformed
-  responses, and empty feeds fail without deleting or canceling existing records.
-  The job has bounded response sizes and retries. A failure is visible in GitHub logs.
+- A complete source is fetched and validated before writing. The service-only RPC
+  commits batches of at most 100 candidates to stay within hosted database timeouts.
+  Each batch is atomic. A later database failure leaves earlier committed batches
+  intact; rerunning is safe and reports unchanged records. Missing fields, malformed
+  responses, and empty feeds fail before any writes. The job has bounded response
+  sizes and fetch retries. A failure is visible in GitHub logs.
 - Explicit cancellation flags or recognized cancellation notices update `is_cancelled`.
   Disappearance or an unpublished Bienen record alone is not proof of cancellation.
   Removed listings require organizer confirmation/manual action; their absence is not
@@ -87,9 +90,10 @@ Actions status if updates stop. No artificial keepalive commits are generated.
   Legacy imports with no snapshot retain untracked content edits, bootstrap lifecycle
   flags, and report a conflict for review.
 - Unchanged candidates do not write the event, provenance row, or private snapshot.
-  The source-level last-success timestamp and successful-run summary still advance.
-  Therefore `event_sources.last_seen_at` is not a nightly freshness signal; use
-  `sources.last_fetched_at` for that.
+  The source timestamp and private batch summaries still advance. Therefore
+  `event_sources.last_seen_at` is not a nightly freshness signal. `sources.last_fetched_at`
+  indicates the last committed batch, while the GitHub run/report is authoritative
+  for completion of the entire source; a partially failed run is never reported as healthy.
 - Stored text respects database length limits; longer text is abbreviated with an
   ellipsis and the original source remains linked. Unknown fees display “See details.”
 - Images are source-hosted event images, not copied or AI-generated posters. Missing
@@ -113,3 +117,6 @@ Actions status if updates stop. No artificial keepalive commits are generated.
   atomic rollback, private access, all-day DST, dry-run behavior, and source isolation.
 - Activation is complete only after the hosted migration, default-branch workflow,
   backend secret, and first successful apply run are verified.
+- Hosted verification caught a statement timeout on the initial 3,859-item PlanIt
+  Purple transaction. The permanent runner now uses 100-item transactions, covered
+  by a batching/partial-failure regression test. No temporary repair workflow was added.

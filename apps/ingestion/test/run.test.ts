@@ -37,3 +37,20 @@ test('runner validates data, reports partial failure, and never writes in dry-ru
   assert.equal(empty.sources[0].status, 'failed')
   assert.equal(writes, 1, 'Empty feed must not call the writer')
 })
+
+test('large sources use bounded database transactions and report partial failures honestly', async () => {
+  assert.equal(typeof runner.writeBatches, 'function')
+  const items = Array.from({ length: 251 }, (_, n) => ({ external_id: String(n) })) as Parameters<typeof runner.writeBatches>[1]
+  const committed: string[] = []
+  const stats = await runner.writeBatches('PlanItPurple', items, async (_source, batch) => {
+    assert.ok(batch.length <= 100, 'No transaction should exceed 100 candidates')
+    committed.push(...batch.map(item => item.external_id))
+    return { inserted: batch.length, unchanged: 0 }
+  })
+  assert.equal(stats.inserted, 251)
+  assert.deepEqual(committed, items.map(item => item.external_id))
+  await assert.rejects(runner.writeBatches('PlanItPurple', items, async (_source, batch) => {
+    if (batch[0].external_id === '100') throw new Error('statement timeout')
+    return { inserted: batch.length }
+  }), /100 candidates committed.*safe to retry.*statement timeout/i)
+})

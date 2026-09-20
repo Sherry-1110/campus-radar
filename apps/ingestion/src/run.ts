@@ -117,6 +117,21 @@ export async function runSync(sources: Source[], apply: Apply | null) {
   return { completed_at: new Date().toISOString(), mode: apply ? 'apply' : 'dry-run', sources: summaries }
 }
 
+export async function writeBatches(source: string, items: Candidate[], write: Apply) {
+  const totals: Record<string, number> = {}
+  // ponytail: atomic per 100 items; the workflow result records whole-source
+  // success. A failed later batch leaves safe, idempotently resumable progress.
+  for (let offset = 0; offset < items.length; offset += 100) {
+    try {
+      const stats = await write(source, items.slice(offset, offset + 100))
+      for (const [key, value] of Object.entries(stats)) totals[key] = (totals[key] ?? 0) + value
+    } catch (error) {
+      throw new Error(`${offset} candidates committed; safe to retry. ${error instanceof Error ? error.message : 'Batch failed'}`)
+    }
+  }
+  return totals
+}
+
 async function main() {
   const { values } = parseArgs({ options: {
     apply: { type: 'boolean', default: false }, 'dry-run': { type: 'boolean', default: false },
@@ -131,11 +146,11 @@ async function main() {
     if (!url || !key) throw new Error('Apply requires SUPABASE_URL and a backend Supabase secret')
     if (key.startsWith('sb_publishable_')) throw new Error('A publishable key cannot run the importer')
     const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-    apply = async (source, items) => {
-      const { data, error } = await client.rpc('sync_source_events', { p_source_name: source, p_items: items })
+    apply = (source, items) => writeBatches(source, items, async (name, batch) => {
+      const { data, error } = await client.rpc('sync_source_events', { p_source_name: name, p_items: batch })
       if (error) throw new Error(`Database sync ${error.code}: ${error.message}`)
       return data as Record<string, number>
-    }
+    })
   }
   const sources = [
     { id: 'planitpurple', name: 'PlanItPurple', fetch: () => fetchPlanItPurple(fetchText) },
