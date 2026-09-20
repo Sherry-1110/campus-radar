@@ -320,3 +320,12 @@ The September 20 rollout preview passed all six live cases. Its first 150 API at
 used 886,734 input tokens and yielded 33 accepted, 14 unmatched, 102 uncertain and one
 failed decision. This is coverage evidence, not an accuracy estimate. Bounded selected-text
 samples are included in report artifacts for reviewing the decisions.
+
+Production verification: [run 35499353044](https://github.com/Sherry-1110/campus-radar/actions/runs/35499353044)
+completed successfully for all four sources. PlanItPurple updated 35 of 3,859 events;
+Choose Chicago updated 33 of 7,976; Bienen's 68 and The Garage's 14 were unchanged.
+Both semantic evaluations passed; 104 page decisions were accepted, with no API failures
+in the enrichment phase. The public Sheil event retained its organizer photo and replaced
+the broad multi-campus article with the relevant Sunday Evanston passage. Many pages
+remain uncertain, inaccessible, or budget-deferred; this rollout does not promise full
+coverage or a poster for every event.
