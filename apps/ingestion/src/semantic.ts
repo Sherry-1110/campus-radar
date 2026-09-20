@@ -13,7 +13,7 @@ type Block={id:string;heading:string;text:string}
 type Image={id:string;url:string;context:string}
 type Link={id:string;url:string;label:string}
 export type Detail={description:string|null;image:string|null;next:string[]}
-export type Audit={outcome:'accepted'|'unmatched'|'uncertain'|'failed'|'deferred';model:string;page_hash:string;relationship?:string;confidence?:number;selected_text?:string[]}
+export type Audit={outcome:'accepted'|'unmatched'|'uncertain'|'failed'|'deferred';model:string;page_hash:string;relationship?:string;confidence?:number;selected_text?:string[];block_scores?:Record<string,number>;image_choice?:string;image_confidence?:number}
 export type Decision={detail:Detail|null;audit:Audit}
 type Question={type:'choice'|'noul';instructions:string;criteria?:Record<string,string>}
 const hash=(s:string)=>createHash('sha256').update(s).digest('hex')
@@ -75,7 +75,7 @@ export function interpret(state:Evidence,raw:unknown):Decision {
     if(Math.abs(values.reduce((a,b)=>a+b,0)-1)>0.02||Number(p[string(a.choice)])<Math.max(...values)-0.001)throw Error('Inconsistent Jev probabilities')
   }
   const relation=record(answers.relationship),label=string(relation.choice)
-  const audit:Audit={outcome:'uncertain',model:MODEL,page_hash:hash(JSON.stringify(state)),relationship:label,confidence:Number(relation.confidence)}
+  const audit:Audit={outcome:'uncertain',model:MODEL,page_hash:hash(JSON.stringify(state)),relationship:label,confidence:Number(relation.confidence),block_scores:Object.fromEntries(state.blocks.map(b=>[b.id,Number(record(answers[`block_${b.id}`]).noul)])),image_choice:string(record(answers.image).choice),image_confidence:Number(record(answers.image).confidence)||0}
   // Thresholds are conservative rollout gates, checked by the live evaluation below.
   if(label==='unrelated'&&Number(relation.confidence)>=0.8)return {detail:null,audit:{...audit,outcome:'unmatched'}}
   if(!['occurrence','series'].includes(label)||Number(relation.confidence)<0.8||Number(record(relation.probabilities)[label])<0.9)return {detail:null,audit}
