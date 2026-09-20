@@ -63,45 +63,39 @@ Local-life / event-discovery platform for Northwestern students (multi-school la
 ### Why not auto-scrape Instagram/Xiaohongshu
 No public third-party scraping API; scraping risks account bans and ToS violations, and this content needs human judgment anyway (the source doc itself says "人工筛选推荐" for some of these). Instead: build an internal "quick add" tool — a curator pastes a post link/screenshot/text, an LLM assists extracting title/time/location/poster, curator confirms, it publishes. Human-curated + AI-assisted, not automated scraping.
 
-## Data model (Supabase / Postgres, draft)
+## Data model (Supabase / Postgres — implemented)
 
-```sql
-events (
-  id, title, description, cover_image_url,
-  start_time, end_time, location, location_url,
-  fee, category, source_id, source_url,
-  status,        -- draft / pending_review / published / rejected
-  dedupe_key,    -- hash(title + date + location), fuzzy-matched before insert
-  created_by,    -- null = system-scraped, else user_id
-  created_at
-)
+Source of truth is `supabase/migrations/`; this is the summary. Live since 2026-09-19.
 
-sources (
-  id, name, type,   -- 'calendar_scrape' / 'social_manual' / 'user_upload' / 'eventbrite_api'
-  url, fetch_frequency, last_fetched_at, is_active
-)
+| Table | Purpose |
+|---|---|
+| `schools` | Launch market (Northwestern seeded) with `email_domain` used for verification; keeps multi-school expansion cheap |
+| `profiles` | 1:1 with `auth.users`, created by trigger. `role` (student/curator/admin), `school_id`, `is_school_verified` (true only for a *confirmed* email on the school's domain or a subdomain) |
+| `sources` | Where events come from: `type` (calendar_scrape / social_manual / user_upload / eventbrite_api), `url`, `fetch_interval`, `last_fetched_at`, `is_active`. Seeded with 9 sources |
+| `events` | Title, description, cover image, `start_time`/`end_time` (timestamptz, display in America/Chicago), location, `is_free`/`fee_text`, `category` (enum), `tags[]`, `status` (draft/pending_review/published/rejected), `created_by`. Generated columns: `dedupe_key` (normalized title + start minute; unique per school as an exact-duplicate backstop) and `search` (tsvector) |
+| `event_sources` | Provenance: every source that reported an event (`source_id`, `external_id`, `source_url`, first/last seen). Unique on `(source_id, external_id)` for scraper upserts; dedupe merges here instead of discarding |
+| `submissions` | Review record for user-submitted events; approving/rejecting it publishes/rejects the event and stamps `reviewed_by`/`reviewed_at` via trigger |
+| `mailing_list_subscribers` | `email`, `frequency`, `categories[]`, `confirmed_at`, `unsubscribe_token`; anon can insert only |
 
-users (
-  id, email, display_name, school,   -- 'school' reserved for multi-school expansion
-  is_nu_verified,   -- @northwestern.edu email
-  role              -- student / curator / admin
-)
+Categories: arts, music, sports, academic, career, social, wellness, food, other. Recurring events (e.g. GroupX) are stored as expanded individual rows.
 
-submissions (
-  id, event_id, submitted_by, review_status, reviewer_notes, reviewed_by
-)
-
-mailing_list_subscribers (
-  id, email, frequency, categories[]
-)
-```
+### Access model
+- "Automatically expose new tables" is off: every table has explicit grants **and** RLS. The `service_role` key (ingestion) needs explicit grants too.
+- Anon/public: read `published` events, their `event_sources`, `sources`, `schools`; insert-only on the mailing list.
+- Signed-in: also read own events/submissions/profile; edit only own `display_name`.
+- Users cannot insert events directly. They call the `submit_event()` RPC, which requires `is_school_verified`, forces `status = pending_review` and `created_by = auth.uid()`, and creates the `submissions` row atomically.
+- Curators/admins (`profiles.role`, set manually via SQL by the owner) can read/write everything and review submissions. Helper functions (`is_staff`, `is_verified`) live in the non-exposed `private` schema.
+- Storage: public-read `event-posters` bucket (5 MB, jpeg/png/webp); verified users upload only under `<their user id>/`.
+- Known/accepted advisor warning: `submit_event` is a `SECURITY DEFINER` function callable by signed-in users (by design).
 
 ## Roadmap
 
 **Phase 0 — Foundations**
-- GitHub repo (monorepo: `apps/web`, `apps/ingestion`, `supabase/migrations`)
-- Supabase project + schema/RLS above
-- Cloudflare Pages connected to repo, auto-deploy on push
+- [x] GitHub repo (public, collaborator invited)
+- [x] Supabase project created and linked (`lqirwngvveapraatpibe`)
+- [x] Schema, RLS, storage bucket, seed data applied and tested (see Data model)
+- [ ] Monorepo scaffold: `apps/web` (Vite + React), `apps/ingestion`
+- [ ] Cloudflare Pages connected to repo, auto-deploy on push
 
 **Phase 1 — MVP**
 - Scraper adapters for 3–5 highest-value structured sources (PlanItPurple, Eventbrite, Bienen calendar, Wirtz, GroupX schedule); each source isolated so one failing doesn't break the run

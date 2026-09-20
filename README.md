@@ -13,4 +13,6 @@ See [PLANNING.md](PLANNING.md) for the full product plan, architecture, data mod
 
 ## Status
 
-Pre-development. Supabase project created and linked; next up: Phase 0 schema migration, web app scaffold, Cloudflare Pages deploy — see PLANNING.md.
+Pre-development. Supabase project linked and the database schema (tables, RLS, storage, seed data) is live; next up: web app scaffold and Cloudflare Pages deploy — see PLANNING.md.
+
+To change the schema, add a new file with `npx supabase migration new <name>`, then `npx supabase db push`. Don't edit migrations that have already been applied.
