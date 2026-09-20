@@ -1,0 +1,12 @@
+{
+  "name": "campus-radar",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "npm run dev -w @campus-radar/web",
+    "build": "npm run build -w @campus-radar/web",
+    "lint": "npm run lint -w @campus-radar/web",
+    "typecheck": "npm run typecheck -w @campus-radar/web",
+    "types:db": "npx supabase gen types typescript --linked > apps/web/src/lib/database.types.ts"
+  }
+}

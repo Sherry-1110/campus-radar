@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+
+  --color-brand-50: #f6f2fc;
+  --color-brand-100: #ebe3f7;
+  --color-brand-200: #d6c7ef;
+  --color-brand-300: #b79ce0;
+  --color-brand-500: #7c4dc4;
+  --color-brand-600: #5f35a6;
+  --color-brand-700: #4e2a84;
+  --color-brand-800: #3a1f64;
+  --color-brand-900: #2a1548;
+
+  --color-accent: #ffb020;
+  --color-accent-soft: #fff1d6;
+
+  --color-canvas: #faf8fd;
+  --color-surface: #ffffff;
+  --color-ink: #1b1230;
+  --color-ink-muted: #5b5470;
+  --color-line: #e7e0f2;
+
+  --color-free: #15803d;
+  --color-free-soft: #e8f7ee;
+  --color-danger: #b42318;
+
+  --shadow-card: 0 1px 2px rgb(27 18 48 / 0.06), 0 4px 14px rgb(27 18 48 / 0.06);
+  --shadow-card-hover: 0 2px 4px rgb(27 18 48 / 0.08), 0 12px 28px rgb(78 42 132 / 0.16);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  button,
+  a,
+  select,
+  summary {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}

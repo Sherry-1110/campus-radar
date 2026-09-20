@@ -94,7 +94,9 @@ Categories: arts, music, sports, academic, career, social, wellness, food, other
 - [x] GitHub repo (public, collaborator invited)
 - [x] Supabase project created and linked (`lqirwngvveapraatpibe`)
 - [x] Schema, RLS, storage bucket, seed data applied and tested (see Data model)
-- [ ] Monorepo scaffold: `apps/web` (Vite + React), `apps/ingestion`
+- [x] Monorepo scaffold: npm workspaces, `apps/web` (Vite + React + TS + Tailwind v4 + TanStack Query + React Router), GitHub Actions CI
+- [x] Web: browse page (search, date/category/free filters, load-more), event detail page (add to calendar, .ics, copy link), 15 sample events tagged `demo`
+- [ ] `apps/ingestion` scaffold
 - [ ] Cloudflare Pages connected to repo, auto-deploy on push
 
 **Phase 1 — MVP**
