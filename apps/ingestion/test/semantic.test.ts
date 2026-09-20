@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import { mkdtemp, rm, readdir, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { setImmediate } from 'node:timers/promises'
 import { buildEvidence, buildRequest, createJev, interpret } from '../src/semantic.ts'
 import { enrichSource } from '../src/enrichment.ts'
 import type { Candidate } from '../src/types.ts'
@@ -75,4 +76,11 @@ test('semantic rollout distinguishes shadow, accepted evidence, rejection and bu
   assert.equal(deferred.items[0].semantic?.[0].outcome,'deferred')
   assert.equal(deferred.details?.skipped,1)
   assert.equal(deferred.items[0].enrichment?.status,'unavailable','Budget deferral must preserve previously verified enrichment')
+})
+
+test('bounded semantic work visits different organizer pages before repeated occurrences',async()=>{
+  const items=['https://organizer.org/a','https://organizer.org/b'].flatMap((url,n)=>Array.from({length:5},(_,i)=>({...item,external_id:`${n}-${i}`,related_url:url})))
+  const visited:string[]=[]
+  await enrichSource({items,warnings:[]},async url=>({url,html:page}),new Date('2026-09-20'),{mode:'apply',select:async(_html,url)=>{visited.push(url);await setImmediate();return {detail:null,audit:{outcome:'uncertain',model:'jev-1.13.0',page_hash:'test'}}}})
+  assert.equal(new Set(visited.slice(0,4)).size,2)
 })

@@ -50,7 +50,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-          JEV_MODE: shadow
+          JEV_MODE: apply
           APPLY: ${{ github.event_name == 'schedule' || inputs.apply }}
         run: |
           if [ "$APPLY" = "true" ]; then

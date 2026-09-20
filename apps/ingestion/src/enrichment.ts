@@ -107,7 +107,10 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
   // overflow fairly; add a persistent queue only if this limit prevents useful coverage.
   const date=now.toISOString().slice(0,10)
   const eligible=items.filter(i=>i.related_url && Date.parse(i.data.end_time||i.data.start_time)>=now.getTime()-86400000 && Date.parse(i.data.start_time)<=now.getTime()+180*86400000)
-  eligible.sort((a,b)=>createHash('sha256').update(date+a.related_url).digest('hex').localeCompare(createHash('sha256').update(date+b.related_url).digest('hex')))
+  const counts=new Map<string,number>(),ranks=new Map<Candidate,number>()
+  for(const item of eligible){const count=counts.get(item.related_url!)||0;ranks.set(item,count);counts.set(item.related_url!,count+1)}
+  // Visit each organizer before repeats so one long-running series cannot exhaust the AI budget.
+  eligible.sort((a,b)=>ranks.get(a)!-ranks.get(b)! || createHash('sha256').update(date+a.related_url).digest('hex').localeCompare(createHash('sha256').update(date+b.related_url).digest('hex')))
   let index=0
   await Promise.all(Array.from({length:4},async()=>{
     while(index<eligible.length){

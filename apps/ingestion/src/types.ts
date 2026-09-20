@@ -27,7 +27,7 @@ export interface Candidate {
 }
 
 export interface SourceResult {
-  semantic?: { mode:string; evaluation_passed:boolean; stats:Record<string,number>; samples:Array<{external_id:string;outcome:string;relationship?:string}> }
+  semantic?: { mode:string; evaluation_passed:boolean; stats:Record<string,number>; samples:Array<{external_id:string;title:string;outcome:string;relationship?:string;selected_text:string[]}> }
   details?: { checked: number; enriched: number; failed: number; skipped: number }
   items: Candidate[]
   warnings: string[]

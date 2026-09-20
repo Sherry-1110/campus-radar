@@ -309,3 +309,14 @@ failed/deferred decisions, cache hits, API attempts and input tokens. `/sources`
 to show calendar health and overall enrichment counts, linking to those detailed reports.
 No autonomous browsing, embedding database, generative rewriting, or hosting migration is
 part of this first integration.
+
+The production workflow enables `JEV_MODE=apply`. Manual runs can select one source or
+all sources; scheduled runs always use all four independent adapters. The write checkbox
+controls database writes separately from semantic mode. Original-page work interleaves
+organizers before repeated occurrences, then rotates their order daily. Evaluation or
+budget failures preserve prior verified enrichment when its calendar baseline is unchanged.
+
+The September 20 rollout preview passed all six live cases. Its first 150 API attempts
+used 886,734 input tokens and yielded 33 accepted, 14 unmatched, 102 uncertain and one
+failed decision. This is coverage evidence, not an accuracy estimate. Bounded selected-text
+samples are included in report artifacts for reviewing the decisions.

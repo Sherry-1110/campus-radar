@@ -208,7 +208,9 @@ async function main() {
       console.log(JSON.stringify({semantic_evaluation:evaluation}))
       const jev=createJev(options)
       const result=await enrichSource(base,fetchOriginal,new Date(),evaluation.passed?{mode:mode as 'shadow'|'apply',select:jev.select}:undefined)
-      result.semantic={mode:mode!,evaluation_passed:evaluation.passed,stats:jev.stats,samples:result.items.flatMap(i=>(i.semantic||[]).map(a=>({external_id:i.external_id,outcome:a.outcome,relationship:a.relationship}))).slice(0,30)}
+      // A failed model evaluation must not replace prior verified details with the fallback.
+      if(!evaluation.passed&&mode==='apply') for(const item of result.items) if(item.enrichment)item.enrichment.status='unavailable'
+      result.semantic={mode:mode!,evaluation_passed:evaluation.passed,stats:jev.stats,samples:result.items.flatMap(i=>(i.semantic||[]).map(a=>({external_id:i.external_id,title:i.data.title,outcome:a.outcome,relationship:a.relationship,selected_text:(a.selected_text||[]).slice(0,4).map(text=>text.slice(0,800))}))).slice(0,30)}
       if(!evaluation.passed)result.warnings.push('Jev evaluation failed or API key unavailable; semantic enrichment disabled, calendar and rule-based updates continued')
       if(jev.stats.failed||jev.stats.deferred)result.warnings.push(`Jev: ${jev.stats.failed} unavailable and ${jev.stats.deferred} budget-deferred decisions; previous enrichment retained where possible`)
       return result
