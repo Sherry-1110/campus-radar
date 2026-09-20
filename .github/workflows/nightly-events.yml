@@ -10,6 +10,11 @@ on:
         description: 'Write events to Supabase (false previews source coverage only)'
         type: boolean
         default: false
+      source:
+        description: 'Source to run (scheduled runs always run all sources)'
+        type: choice
+        options: [all, planitpurple, bienen, choose-chicago, garage]
+        default: all
 
 permissions:
   contents: read
@@ -24,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source: [planitpurple, bienen, choose-chicago, garage]
+        source: ${{ fromJSON(inputs.source && inputs.source != 'all' && format('["{0}"]', inputs.source) || '["planitpurple","bienen","choose-chicago","garage"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
