@@ -100,7 +100,7 @@ Categories (database values): arts, music, sports, academic, career, social, wel
 - [x] Web: browse page (four multi-select dropdown filters: From on campus/nearby, Time, Category, Location; a separate Free only checkbox; a search icon that opens the search field; only today and later), compact event cards, event detail page (add to calendar, .ics, copy link)
 - [x] Event detail page: "Event page" link under the title (`events.more_info_url`, the listing's "More info" target, kept in sync by a trigger on `private.ingestion_items`; falls back to the listing URL), Google Maps link built from the address, category tag under the address
 - [x] Place fields (`area`, `region`, `neighborhood`) added by migration `event_place_filters`, applied via the Supabase MCP (recorded remotely as version `20260920074510`)
-- [ ] Repair the remote migration history: `20260920120000`, `20260920180000` and `20260920210000` were applied outside the CLI and are not recorded, so `supabase db push` would try to re-apply them (`supabase migration repair --status applied <version>`)
+- [x] Remote migration history repaired on 2026-09-21: verified the live schema/functions, then recorded `20260920120000`, `20260920180000` and `20260920210000` using `supabase migration repair --status applied`. All 12 committed migrations through `20260921043636` match remote history; `supabase db push --linked --dry-run` succeeds. No migration SQL was replayed.
 - [ ] Decide the final names for the "From" filter and the "In between" location option
 - [x] Cloudflare Workers (Static Assets) config and a manual deployment on `campus-radar.com`
 - [x] Apply migration `20260920040000` (poster permissions, location-aware dedupe) to the hosted database

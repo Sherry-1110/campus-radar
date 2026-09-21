@@ -55,7 +55,7 @@ display. The nightly PlanIt Purple and Bienen workflow is active and its first c
 hosted import succeeded on September 20, 2026. Login, event submission,
 and admin review are still pending.
 
-To change the schema, add a new file with `npx supabase migration new <name>`, then `npx supabase db push`. Don't edit migrations that have already been applied.
+To change the schema, add a new file with `npx supabase migration new <name>`. Review pending migrations with `npx supabase db push --linked --dry-run`, then apply them with `npx supabase db push --linked`. Don't edit migrations that have already been applied. The three previously missing history entries were repaired on 2026-09-21; do not rerun their SQL.
 
 ## Deployment
 
