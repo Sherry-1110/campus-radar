@@ -79,7 +79,7 @@ Source of truth is `supabase/migrations/`; this is the target schema summary. Th
 | `submissions` | Review record for user-submitted events; approving/rejecting it publishes/rejects the event and stamps `reviewed_by`/`reviewed_at` via trigger |
 | `mailing_list_subscribers` | `email`, `frequency`, `categories[]`, `confirmed_at`, `unsubscribe_token`; anon can insert only |
 
-Categories: arts, music, sports, academic, career, social, wellness, food, other. Recurring events (e.g. GroupX) are stored as expanded individual rows.
+Categories (database values): arts, music, sports, academic, career, social, wellness, food, other. The site shows six groups: Arts (arts + music), Sports (sports + wellness), Academic (academic + career), Social, Food, Other. Each adapter assigns the database value by keyword-matching the source's own category labels (see `category()` in `apps/ingestion/src/sources/shared.ts` and `choose-chicago.ts`); Bienen is always music and The Garage is food or career by title. Anything unmatched becomes `other`. Recurring events (e.g. GroupX) are stored as expanded individual rows.
 
 ### Access model
 - "Automatically expose new tables" is off: every table has explicit grants **and** RLS. The `service_role` key (ingestion) needs explicit grants too.
@@ -98,6 +98,7 @@ Categories: arts, music, sports, academic, career, social, wellness, food, other
 - [x] Schema, RLS, storage bucket, seed data applied and tested (see Data model)
 - [x] Monorepo scaffold: npm workspaces, `apps/web` (Vite + React + TS + Tailwind v4 + TanStack Query + React Router), GitHub Actions CI
 - [x] Web: browse page (four multi-select dropdown filters: From on campus/nearby, Time, Category, Location; a separate Free only checkbox; a search icon that opens the search field; only today and later), compact event cards, event detail page (add to calendar, .ics, copy link)
+- [x] Event detail page: "Event page" link under the title (`events.more_info_url`, the listing's "More info" target, kept in sync by a trigger on `private.ingestion_items`; falls back to the listing URL), Google Maps link built from the address, category tag under the address
 - [x] Place fields (`area`, `region`, `neighborhood`) added by migration `event_place_filters`, applied via the Supabase MCP (recorded remotely as version `20260920074510`)
 - [ ] Repair the remote migration history: `20260920120000`, `20260920180000` and `20260920210000` were applied outside the CLI and are not recorded, so `supabase db push` would try to re-apply them (`supabase migration repair --status applied <version>`)
 - [ ] Decide the final names for the "From" filter and the "In between" location option

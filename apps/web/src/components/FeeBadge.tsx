@@ -2,6 +2,8 @@ import { Ticket } from 'lucide-react'
 import { feeLabel, type EventRow } from '@/lib/events'
 
 export function FeeBadge({ event }: { event: Pick<EventRow, 'is_free' | 'fee_text'> }) {
+  const label = feeLabel(event)
+  if (!label) return null
   const free = event.is_free
   return (
     <span
@@ -10,7 +12,7 @@ export function FeeBadge({ event }: { event: Pick<EventRow, 'is_free' | 'fee_tex
       }`}
     >
       <Ticket className="size-4" aria-hidden="true" />
-      {feeLabel(event)}
+      {label}
     </span>
   )
 }

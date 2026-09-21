@@ -93,7 +93,7 @@ export function useEvent(id: string | undefined) {
       if (!id || !UUID.test(id)) return null
       const { data, error } = await supabase
         .from('events')
-        .select('*, event_sources(source_url, sources(name, url))')
+        .select('*')
         .eq('id', id)
         .maybeSingle()
       if (error) throw error
@@ -102,7 +102,8 @@ export function useEvent(id: string | undefined) {
   })
 }
 
-export function feeLabel(event: Pick<EventRow, 'is_free' | 'fee_text'>): string {
+/** "Free", the listed price, or null when the source gave no price. */
+export function feeLabel(event: Pick<EventRow, 'is_free' | 'fee_text'>): string | null {
   if (event.is_free) return 'Free'
-  return event.fee_text?.trim() || 'See details'
+  return event.fee_text?.trim() || null
 }

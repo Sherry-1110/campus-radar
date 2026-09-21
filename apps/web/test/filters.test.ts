@@ -13,6 +13,7 @@ import {
   ALL_CATEGORIES,
 } from '../src/lib/filters.ts'
 import { cardFee } from '../src/lib/fee.ts'
+import { eventPageUrl, googleMapsUrl } from '../src/lib/maps.ts'
 import { cardPlace, venueName } from '../src/lib/place.ts'
 
 const plain = (s: string) => s.replace(/ /g, ' ')
@@ -167,4 +168,37 @@ test('card fee shows Free, a price or range, or nothing for long prose', () => {
   assert.equal(cardFee({ is_free: false, fee_text: 'Suggested donation' }), 'Suggested donation')
   assert.equal(cardFee({ is_free: false, fee_text: 'Varies by workshops and courses.' }), null)
   assert.equal(cardFee({ is_free: false, fee_text: null }), null)
+})
+
+test('Google Maps link searches the full address, adding the city for bare venue names', () => {
+  const url = (loc: string | null, region: string | null) => {
+    const link = googleMapsUrl(loc, region)
+    return link ? decodeURIComponent(link.split('query=')[1]) : null
+  }
+  const base = 'https://www.google.com/maps/search/?api=1&query='
+  assert.ok(googleMapsUrl('The Second City, 1616 N. Wells St., Chicago, 60614', 'chicago')?.startsWith(base))
+  assert.equal(
+    url('The Second City, 1616 N. Wells St., Chicago, 60614', 'chicago'),
+    'The Second City, 1616 N. Wells St., Chicago, 60614',
+  )
+  assert.equal(url('Theater Wit', 'chicago'), 'Theater Wit, Chicago, IL')
+  assert.equal(url('Pick-Staiger Concert Hall', 'evanston'), 'Pick-Staiger Concert Hall, Evanston, IL')
+  assert.equal(url('United Center, 1901 W Madison St,, Chicago, 60612,', 'chicago'), 'United Center, 1901 W Madison St, Chicago, 60612')
+  assert.equal(url('Rosemont Theatre', 'other'), 'Rosemont Theatre')
+  assert.match(googleMapsUrl('Café & Bar, 5 Main St', null) ?? '', /query=Caf%C3%A9%20%26%20Bar/)
+  assert.equal(googleMapsUrl('Online', 'other'), null)
+  assert.equal(googleMapsUrl('No Location', 'other'), null)
+  assert.equal(googleMapsUrl(null, 'chicago'), null)
+})
+
+test('the event page link prefers the "More info" page over the listing', () => {
+  assert.equal(
+    eventPageUrl({ more_info_url: 'https://organizer.example/e/1', source_url: 'https://www.choosechicago.com/event/x/' }),
+    'https://organizer.example/e/1',
+  )
+  assert.equal(
+    eventPageUrl({ more_info_url: null, source_url: 'https://www.choosechicago.com/event/x/' }),
+    'https://www.choosechicago.com/event/x/',
+  )
+  assert.equal(eventPageUrl({ more_info_url: null, source_url: null }), null)
 })

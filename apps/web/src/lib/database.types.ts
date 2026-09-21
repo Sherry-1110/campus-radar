@@ -101,6 +101,7 @@ export type Database = {
           is_free: boolean
           location: string | null
           location_url: string | null
+          more_info_url: string | null
           neighborhood: string | null
           region: Database["public"]["Enums"]["event_region"]
           school_id: string
@@ -129,6 +130,7 @@ export type Database = {
           is_free?: boolean
           location?: string | null
           location_url?: string | null
+          more_info_url?: string | null
           neighborhood?: string | null
           region: Database["public"]["Enums"]["event_region"]
           school_id: string
@@ -157,6 +159,7 @@ export type Database = {
           is_free?: boolean
           location?: string | null
           location_url?: string | null
+          more_info_url?: string | null
           neighborhood?: string | null
           region?: Database["public"]["Enums"]["event_region"]
           school_id?: string
