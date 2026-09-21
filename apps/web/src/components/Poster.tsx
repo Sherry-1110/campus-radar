@@ -20,6 +20,7 @@ export function Poster({ src, title, category, className = '' }: PosterProps) {
         alt={`Poster for ${title}`}
         loading="lazy"
         decoding="async"
+        referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
         className={`absolute inset-0 h-full w-full object-cover ${className}`}
       />
