@@ -29,3 +29,6 @@ dist-ssr
 !.dev.vars.example
 .env*
 !.env.example
+
+# Public production browser configuration; never include backend credentials.
+!.env.production

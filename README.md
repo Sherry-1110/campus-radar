@@ -52,20 +52,32 @@ delete from public.events where 'demo' = any(tags);
 The database schema and web app are live at https://campus-radar.com, including
 event browsing, search/filters, detail pages, source posters, and cancellation/all-day
 display. The nightly PlanIt Purple and Bienen workflow is active and its first complete
-hosted import succeeded on September 20, 2026. Login, event submission, admin review,
-and Cloudflare GitHub auto-deployment are still pending.
+hosted import succeeded on September 20, 2026. Login, event submission,
+and admin review are still pending.
 
 To change the schema, add a new file with `npx supabase migration new <name>`, then `npx supabase db push`. Don't edit migrations that have already been applied.
 
 ## Deployment
 
-The web app deploys to Cloudflare Workers with Static Assets. `cd apps/web`, then `npx wrangler login` and `npm run deploy` publish to the signed-in Cloudflare account (the build reads `apps/web/.env.local`, so the Supabase variables must be set there).
-The custom domain is tracked in `apps/web/wrangler.jsonc`.
-Only the Supabase publishable key belongs in browser `VITE_` variables, never a service-role key.
+The existing [CI workflow](.github/workflows/ci.yml) tests, lints, type-checks, and builds
+on pull requests and pushes to `main`. Successful `main` pushes then deploy Worker `web`
+to https://campus-radar.com and verify that the live page references the new build.
+Production runs are serialized; pull requests never receive deployment credentials.
+The independent nightly event workflow is unchanged.
 
-For GitHub auto-deployment, the repository owner must authorize Cloudflare's GitHub app.
-Use Worker name `web`, root `apps/web`, build command `npm run build`, deploy command
-`npx wrangler deploy`, and production branch `main`.
+GitHub repository Actions secret `CLOUDFLARE_API_TOKEN` provides deployment access.
+Scope the token to the site's Cloudflare account with Workers Scripts Edit and Account
+Settings Read, and the `campus-radar.com` zone with Zone Read and Workers Routes Edit.
+The non-secret account ID is recorded in the workflow. No Cloudflare GitHub App installation
+is required. If a deployment fails, inspect CI's deploy step and re-run the failed job after
+correcting the cause. Database migrations remain a separate, deliberate operation.
+
+`apps/web/.env.production` contains only the public Supabase URL and publishable key,
+which are intentionally shipped to browsers; RLS controls database access. Never put a
+backend secret or service-role key in `VITE_` variables. Local `.env.local` can override
+these values. The custom domain is tracked in `apps/web/wrangler.jsonc`.
+
+For a manual deployment, run `cd apps/web`, `npx wrangler login`, then `npm run deploy`.
 
 ## Database regression checks
 
