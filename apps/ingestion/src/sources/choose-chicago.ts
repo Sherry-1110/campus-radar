@@ -53,7 +53,19 @@ function candidate(e: Record<string, unknown>): Candidate {
   } }
 }
 
+class SnapshotChanged extends Error {}
+
 export async function fetchChooseChicago(fetchText: FetchText, now = new Date()): Promise<SourceResult> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchSnapshot(fetchText, now, attempt ? `${Date.now()}-${attempt}` : undefined)
+    } catch (error) {
+      if (!(error instanceof SnapshotChanged) || attempt >= 2) throw error
+    }
+  }
+}
+
+async function fetchSnapshot(fetchText: FetchText, now: Date, cacheKey?: string): Promise<SourceResult> {
   const localDate = (time: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(time)
   const start = `${localDate(now.getTime() - 90 * DAY)} 00:00:00`
   const end = `${localDate(now.getTime() + 365 * DAY)} 23:59:59`
@@ -69,12 +81,14 @@ export async function fetchChooseChicago(fetchText: FetchText, now = new Date())
     const target = new URL(next)
     // Validate before handing pagination URLs to the shared network client.
     if (target.origin !== ORIGIN || ![PATH, `${PATH}/`].includes(target.pathname) || target.username || target.password || target.hash ||
-        [...target.searchParams.keys()].some(key => !['start_date', 'end_date', 'per_page', 'status', 'page'].includes(key)) ||
+        [...target.searchParams.keys()].some(key => !['start_date', 'end_date', 'per_page', 'status', 'page'].includes(key) && !(key === '_' && cacheKey && target.searchParams.getAll('_').length === 1 && target.searchParams.get('_') === cacheKey)) ||
         ['start_date', 'end_date', 'per_page', 'status', 'page'].some(key => target.searchParams.getAll(key).length !== 1) ||
         target.searchParams.get('start_date') !== start || target.searchParams.get('end_date') !== end ||
         target.searchParams.get('per_page') !== '50' || target.searchParams.get('status') !== 'publish' || target.searchParams.get('page') !== String(page)) {
       throw new Error('Choose Chicago: unsafe or inconsistent pagination URL')
     }
+    // The API caches each page independently and omits this key from next_rest_url.
+    if (cacheKey) target.searchParams.set('_', cacheKey)
     const payload = row(JSON.parse(await fetchText(target.href)))
     const events = payload.events
     const total = payload.total
@@ -84,7 +98,7 @@ export async function fetchChooseChicago(fetchText: FetchText, now = new Date())
     if (Number(pages) > 400) throw new Error('Choose Chicago: pagination exceeds 20,000-occurrence safety limit; source not truncated')
     expectedTotal ??= Number(total)
     expectedPages ??= Number(pages)
-    if (total !== expectedTotal || pages !== expectedPages) throw new Error('Choose Chicago: collection changed during pagination; retry source')
+    if (total !== expectedTotal || pages !== expectedPages) throw new SnapshotChanged('Choose Chicago: collection changed during pagination after bounded retries')
     const expectedLength = Math.min(50, expectedTotal - received)
     if (events.length !== expectedLength) throw new Error('Choose Chicago: incomplete result page')
     for (const raw of events) {

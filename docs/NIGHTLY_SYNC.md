@@ -353,3 +353,9 @@ registered. Registration atomically updates matching event URLs and importer
 baselines. Failed downloads retain the prior poster and appear in
 `poster-report.json`; rerunning retries failures and reuses completed copies.
 No public storage write permissions or frontend credentials are added.
+
+Choose Chicago's API caches pages independently. If totals change during
+pagination, the adapter discards the partial snapshot and restarts from page one
+with a fresh cache key on every page (up to three attempts). All URL, count,
+duplicate-ID and completeness checks remain enforced; an inconsistent final
+attempt still fails without reconciling a partial collection.

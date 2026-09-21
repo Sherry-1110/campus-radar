@@ -80,11 +80,13 @@ test('Choose Chicago rejects unsafe pagination before fetching and fails truncat
   await assert.rejects(fetchChooseChicago(async () => response(Array.from({ length: 50 }, (_, i) => event(i + 1)), { total: 51, total_pages: 2 }), now), /missing or extra/)
   let calls = 0
   await assert.rejects(fetchChooseChicago(async value => {
-    if (++calls === 2) return response([event(51)], { total: 52, total_pages: 2 })
+    calls++
+    if (new URL(value).searchParams.get('page') === '2') return response([event(51)], { total: 52, total_pages: 2 })
     const u = new URL(value)
     u.searchParams.set('page', '2')
     return response(Array.from({ length: 50 }, (_, i) => event(i + 1)), { total: 51, total_pages: 2, next_rest_url: u.href })
   }, now), /changed/)
+  assert.equal(calls,6,'Repeated drift must stop after three complete attempts')
 })
 
 test('Choose Chicago cancellation requires explicit markers; hidden/absent is not cancelled', async () => {
@@ -102,4 +104,22 @@ test('Choose Chicago source errors and malformed or duplicate records fail the w
     await assert.rejects(fetchChooseChicago(async () => body, now))
   }
   await assert.rejects(fetchChooseChicago(async () => { throw new Error('network failed') }, now), /network failed/)
+})
+
+// Cached page 1 can disagree with a fresh later page; discard that entire attempt.
+test('Choose Chicago restarts an inconsistent snapshot with fresh pages and no leaked partial results', async () => {
+  const calls:URL[]=[]
+  const result=await fetchChooseChicago(async raw=>{
+    const u=new URL(raw);calls.push(u)
+    const fresh=u.searchParams.has('_'), page=Number(u.searchParams.get('page'))
+    const total=fresh?52:(page===1?51:52)
+    const next=new URL(u);next.searchParams.delete('_');next.searchParams.set('page','2')
+    return response(Array.from({length:page===1?50:2},(_,i)=>event((fresh?1000:0)+(page-1)*50+i+1)),{
+      total,total_pages:2,...(page===1?{next_rest_url:next.href}:{})
+    })
+  },now)
+  assert.deepEqual(result.items.map(i=>i.external_id),Array.from({length:52},(_,i)=>String(1001+i)))
+  assert.equal(calls.length,4)
+  assert.ok(calls[2].searchParams.get('_'))
+  assert.equal(calls[2].searchParams.get('_'),calls[3].searchParams.get('_'),'Keep requests fresh even when next_rest_url drops the cache key')
 })
