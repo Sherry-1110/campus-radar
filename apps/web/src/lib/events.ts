@@ -1,14 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { Database } from './database.types'
-import { startOfChicagoDay } from './dates'
-import {
-  ALL_REGIONS,
-  ALL_SCOPES,
-  categoryClause,
-  matchesNothing,
-  timeRanges,
-  type EventFilters,
-} from './filters'
+import { matchesNothing, type EventFilters } from './filters'
+import { queryEvents } from './eventQuery'
+import { withinBounds, type MapBounds } from './geo'
+import { demoMaps, locateDemoEvents } from './demoCoordinates'
 import { supabase } from './supabase'
 import { PAGE_SIZE, pageRange } from './pagination'
 
@@ -25,52 +20,31 @@ export type EventListItem = Pick<
   | 'fee_text'
   | 'category'
   | 'area'
+  | 'region'
   | 'neighborhood'
   | 'is_cancelled'
   | 'is_all_day'
 >
 
 const LIST_COLUMNS =
-  'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,neighborhood,is_cancelled,is_all_day'
+  'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,region,neighborhood,is_cancelled,is_all_day'
 
-export function useEvents(filters: EventFilters, page: number) {
+export function useEvents(filters: EventFilters, page: number, bounds: MapBounds | null = null) {
   return useQuery({
-    queryKey: ['events', filters, page],
+    queryKey: ['events', filters, page, bounds],
     queryFn: async ({ signal }) => {
       // An empty selection in any filter can match nothing; skip the request.
       if (matchesNothing(filters)) return { items: [] as EventListItem[], total: 0, page: 1 }
 
-      const now = new Date()
-      let query = supabase
-        .from('events')
-        .select(LIST_COLUMNS, { count: 'exact' })
-        .eq('status', 'published')
-        // Only today and later, by Chicago calendar date.
-        .gte('start_time', startOfChicagoDay(now).toISOString())
-
-      const ranges = timeRanges(filters, now)
-      if (!(ranges.length === 1 && ranges[0].to === null)) {
-        const clauses = ranges.map((r) => {
-          const from = `start_time.gte.${r.from.toISOString()}`
-          return r.to ? `and(${from},start_time.lt.${r.to.toISOString()})` : from
-        })
-        query = query.or(clauses.join(','))
+      if (demoMaps && bounds) {
+        const all = await fetchAllEvents(filters, signal)
+        const { located } = await locateDemoEvents(all)
+        const ids = new Set(located.filter(event => withinBounds(event.event_coordinates, bounds)).map(e => e.id))
+        const matching = all.filter(e => ids.has(e.id))
+        const currentPage = Math.min(page, Math.max(1, Math.ceil(matching.length / PAGE_SIZE)))
+        return { items: matching.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), total: matching.length, page: currentPage }
       }
-
-      if (filters.scopes.length < ALL_SCOPES.length) query = query.in('area', filters.scopes)
-      if (filters.regions.length < ALL_REGIONS.length) query = query.in('region', filters.regions)
-
-      const categories = categoryClause(filters.categories)
-      if (categories.kind === 'some') query = query.in('category', categories.dbCategories)
-      if (filters.freeOnly) query = query.eq('is_free', true)
-
-      const term = filters.q.replace(/[,()"\\%*:]/g, ' ').replace(/\s+/g, ' ').trim()
-      if (term) query = query.or(`title.ilike.*${term}*,search.wfts(english).${term}`)
-
-      query = query
-        .order('start_time', { ascending: true })
-        .order('id', { ascending: true })
-        .abortSignal(signal)
+      const query = queryEvents(supabase, filters, LIST_COLUMNS, bounds).abortSignal(signal).returns<EventListItem[]>()
 
       let result = await query.range(...pageRange(page))
       // Saved links can outlive events. Recover an out-of-range page rather than showing an error.
@@ -114,4 +88,53 @@ export function useEvent(id: string | undefined) {
 export function feeLabel(event: Pick<EventRow, 'is_free' | 'fee_text'>): string | null {
   if (event.is_free) return 'Free'
   return event.fee_text?.trim() || null
+}
+
+export type MapEvent = { id: string; title: string; event_coordinates: { latitude: number; longitude: number } }
+
+async function fetchAllEvents(filters: EventFilters, signal: AbortSignal) {
+  const items: EventListItem[] = []
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await queryEvents(supabase, filters, LIST_COLUMNS).range(offset, offset + 499).abortSignal(signal).returns<EventListItem[]>()
+    if (error) throw error
+    items.push(...data)
+    if (data.length < 500) return items
+  }
+}
+
+export function useMapEvents(filters: EventFilters, bounds: MapBounds | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['map-events', filters, bounds], enabled, retry: false, staleTime: 5 * 60_000,
+    queryFn: async ({ signal }) => {
+      if (matchesNothing(filters)) return { located: [] as MapEvent[], deferred: 0, warning: '' }
+      if (demoMaps) {
+        const result = await locateDemoEvents(await fetchAllEvents(filters, signal))
+        return { ...result, located: result.located.filter(event => withinBounds(event.event_coordinates, bounds)) }
+      }
+      const located: MapEvent[] = []
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await queryEvents(supabase, filters, 'id,title', bounds, true)
+          .range(offset, offset + 499).abortSignal(signal).returns<MapEvent[]>()
+        if (error) throw error
+        located.push(...data)
+        if (data.length < 500) return { located, deferred: 0, warning: '' }
+      }
+    },
+  })
+}
+
+export function useSavedEventRows(ids: string[]) {
+  return useQuery({
+    queryKey: ['saved-events', ids],
+    queryFn: async ({ signal }) => {
+      const items: EventListItem[] = []
+      for (let offset = 0; offset < ids.length; offset += 100) {
+        const { data, error } = await supabase.from('events').select(LIST_COLUMNS)
+          .eq('status', 'published').in('id', ids.slice(offset, offset + 100)).abortSignal(signal)
+        if (error) throw error
+        items.push(...data)
+      }
+      return items.sort((a, b) => a.start_time.localeCompare(b.start_time) || a.id.localeCompare(b.id))
+    },
+  })
 }

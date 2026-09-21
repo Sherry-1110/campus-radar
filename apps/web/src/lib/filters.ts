@@ -2,7 +2,7 @@ import { CATEGORY_GROUPS, type CategoryGroup, type DbCategory } from './category
 import { chicagoMidnight, startOfChicagoDay, zonedParts } from './dates.ts'
 
 export type ScopeValue = 'campus' | 'nearby'
-export type TimeValue = 'today' | 'week' | 'month' | 'custom'
+export type TimeValue = 'today' | 'next7' | 'weekend' | 'week' | 'month' | 'custom'
 export type CategoryValue = CategoryGroup
 export type RegionValue = 'evanston' | 'chicago' | 'between' | 'other'
 
@@ -17,7 +17,9 @@ export const SCOPE_OPTIONS: FilterOption<ScopeValue>[] = [
 ]
 
 export const TIME_OPTIONS: FilterOption<TimeValue>[] = [
+  { value: 'next7', label: 'Next 7 days' },
   { value: 'today', label: 'Today' },
+  { value: 'weekend', label: 'This weekend' },
   { value: 'week', label: 'This week' },
   { value: 'month', label: 'This month' },
   { value: 'custom', label: 'Custom date' },
@@ -61,9 +63,9 @@ export interface EventFilters {
 export const DEFAULT_FILTERS: EventFilters = {
   q: '',
   scopes: ALL_SCOPES,
-  time: ALL_TIMES,
+  time: ['next7'],
   date: null,
-  categories: ALL_CATEGORIES,
+  categories: ALL_CATEGORIES.filter(value => value !== 'academic'),
   regions: ALL_REGIONS,
   freeOnly: false,
 }
@@ -71,16 +73,18 @@ export const DEFAULT_FILTERS: EventFilters = {
 const isAll = <T extends string>(selected: readonly T[], all: readonly T[]) =>
   all.every((v) => selected.includes(v))
 
-function parseList<T extends string>(raw: string | null, all: readonly T[]): T[] {
-  if (raw === null) return [...all]
+function parseList<T extends string>(raw: string | null, all: readonly T[], fallback: readonly T[] = all): T[] {
+  if (raw === null) return [...fallback]
+  if (raw === 'all') return [...all]
   if (raw === 'none') return []
   const wanted = new Set(raw.split(','))
   const picked = all.filter((v) => wanted.has(v))
-  return picked.length > 0 ? picked : [...all]
+  return picked.length > 0 ? picked : [...fallback]
 }
 
-function serializeList<T extends string>(selected: readonly T[], all: readonly T[]): string | null {
-  if (isAll(selected, all)) return null
+function serializeList<T extends string>(selected: readonly T[], all: readonly T[], fallback: readonly T[] = all): string | null {
+  if (selected.length === fallback.length && isAll(selected, fallback)) return null
+  if (isAll(selected, all)) return 'all'
   if (selected.length === 0) return 'none'
   return all.filter((v) => selected.includes(v)).join(',')
 }
@@ -97,9 +101,9 @@ export function parseFilters(params: URLSearchParams): EventFilters {
   return {
     q: params.get('q') ?? '',
     scopes: parseList(params.get('from'), ALL_SCOPES),
-    time: parseList(params.get('time'), ALL_TIMES),
+    time: parseList(params.get('time'), ALL_TIMES, DEFAULT_FILTERS.time),
     date: parseDateParam(params.get('date')),
-    categories: parseList(params.get('cat'), ALL_CATEGORIES),
+    categories: parseList(params.get('cat'), ALL_CATEGORIES, params.get('q')?.trim() ? ALL_CATEGORIES : DEFAULT_FILTERS.categories),
     regions: parseList(params.get('loc'), ALL_REGIONS),
     freeOnly: params.get('free') === '1',
   }
@@ -113,9 +117,9 @@ export function writeFilters(filters: EventFilters): URLSearchParams {
   }
   set('q', filters.q.trim() || null)
   set('from', serializeList(filters.scopes, ALL_SCOPES))
-  set('time', serializeList(filters.time, ALL_TIMES))
+  set('time', serializeList(filters.time, ALL_TIMES, DEFAULT_FILTERS.time))
   set('date', filters.time.includes('custom') ? filters.date : null)
-  set('cat', serializeList(filters.categories, ALL_CATEGORIES))
+  set('cat', serializeList(filters.categories, ALL_CATEGORIES, filters.q.trim() ? ALL_CATEGORIES : DEFAULT_FILTERS.categories))
   set('loc', serializeList(filters.regions, ALL_REGIONS))
   set('free', filters.freeOnly ? '1' : null)
   return params
@@ -123,6 +127,19 @@ export function writeFilters(filters: EventFilters): URLSearchParams {
 
 export function isDefaultFilters(filters: EventFilters): boolean {
   return writeFilters(filters).size === 0
+}
+
+/** Keep explicit category intent even when it happens to equal the current default. */
+export function updateFilterParams(prev: URLSearchParams, patch: Partial<EventFilters>): URLSearchParams {
+  const filters = { ...parseFilters(prev), ...patch }
+  if (patch.q !== undefined && !prev.has('cat') && patch.categories === undefined) {
+    filters.categories = patch.q.trim() ? ALL_CATEGORIES : DEFAULT_FILTERS.categories
+  }
+  const next = writeFilters(filters)
+  if (patch.categories !== undefined) next.set('cat', patch.categories.length ? (isAll(patch.categories, ALL_CATEGORIES) ? 'all' : patch.categories.join(',')) : 'none')
+  else if (prev.has('cat')) next.set('cat', prev.get('cat')!)
+  if (prev.has('bounds')) next.set('bounds', prev.get('bounds')!)
+  return next
 }
 
 /** True when some filter has nothing selected, so no event can match. */
@@ -155,6 +172,10 @@ export function timeRanges(filters: Pick<EventFilters, 'time' | 'date'>, now: Da
   const ranges: DateRange[] = []
 
   if (filters.time.includes('today')) ranges.push({ from: today, to: day(1) })
+  if (filters.time.includes('next7')) ranges.push({ from: today, to: day(7) })
+  if (filters.time.includes('weekend')) {
+    ranges.push({ from: day(dow === 0 || dow === 6 ? 0 : 6 - dow), to: day((8 - dow) % 7 || 7) })
+  }
   if (filters.time.includes('week')) {
     // Calendar week, Monday to Sunday.
     const untilNextMonday = (8 - dow) % 7 || 7

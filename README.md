@@ -23,6 +23,43 @@ npm run dev                           # http://localhost:5173
 
 Other root scripts: `npm run lint`, `npm run typecheck`, `npm run build`, and `npm run types:db` (regenerate `apps/web/src/lib/database.types.ts` after a schema change). Inside `apps/web` the same scripts work directly (`cd apps/web && npm run dev`).
 
+## Discovery prototype and Google Maps
+
+The implementation branch adds entertainment-first date shortcuts, packed image cards,
+Google Maps with explicit **Search this area**, floating event details, a mobile bottom
+sheet, and browser-local Saved events. Ranking and final visual styling remain deferred.
+
+For a local prototype, set `VITE_GOOGLE_MAPS_API_KEY` and `VITE_GOOGLE_MAPS_DEMO=true`
+in `apps/web/.env.local`, then restart Vite. The ignored local file must not be committed.
+The demo uses Maps JavaScript API and **Geocoding API v4**, through a development-only
+Vite endpoint. It keeps results in memory, deduplicates addresses, and caps each server
+session at 50 distinct addresses. No hosted coordinate writes or scheduled jobs run.
+Google's own demo quota can be lower: successful locations remain visible when a lookup
+fails, with a quota/error message. Restart Vite after quota availability returns.
+
+Only precise, unique US venue results in the Chicago region become pins. Unmapped
+events stay in the normal feed; a selected map area excludes them. Pins cover the
+matching located events independently of card pagination, but demo coverage is limited
+by the lookup cap. Academic events remain accessible through categories or search;
+the default relies on source categorization, so mislabeled source events can still appear.
+
+Production setup is prepared but **not activated**:
+
+1. Configure a restricted browser Maps JavaScript key and map ID; disable demo mode.
+2. Review/apply `20260921190852_event_coordinates.sql` and regenerate database types.
+3. Configure a separate backend `GOOGLE_GEOCODING_API_KEY` for v4 and backend Supabase
+   credentials. Never put backend credentials in `VITE_` variables.
+4. Preview with `npm run coordinates -w @campus-radar/ingestion -- --limit 50`;
+   an explicitly authorized `--apply` populates coordinates. `--purge` removes expired
+   entries. The cache expires after 29 days; public reads hide expired entries and
+   changed venue addresses invalidate them. Arrange approved refresh/physical cleanup
+   before enabling persistent geocoding. No recurring workflow is configured here.
+5. Complete the applicable Google Maps attribution, privacy, and terms requirements
+   before publishing. The prototype keeps Google's map attribution visible.
+
+See [Google's demo-key documentation](https://developers.google.com/maps/demo-key) and
+[Geocoding v4 setup](https://developers.google.com/maps/documentation/geocoding/start-v4).
+
 ## Nightly event sync
 
 PlanIt Purple and Bienen ingestion lives in `apps/ingestion`. The workflow runs at

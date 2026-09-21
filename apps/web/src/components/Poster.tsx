@@ -6,14 +6,15 @@ interface PosterProps {
   title: string
   category: EventCategory
   className?: string
+  natural?: boolean
 }
 
-export function Poster({ src, title, category, className = '' }: PosterProps) {
-  const [failed, setFailed] = useState(false)
+export function Poster({ src, title, category, className = '', natural = false }: PosterProps) {
+  const [failed, setFailed] = useState<string | null>(null)
   const meta = categoryMeta(category)
   const Icon = meta.icon
 
-  if (src && !failed) {
+  if (src && failed !== src) {
     return (
       <img
         src={src}
@@ -21,15 +22,15 @@ export function Poster({ src, title, category, className = '' }: PosterProps) {
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
-        className={`absolute inset-0 h-full w-full object-cover ${className}`}
+        onError={() => setFailed(src)}
+        className={`${natural ? 'block h-auto w-full' : 'absolute inset-0 h-full w-full object-contain'} ${className}`}
       />
     )
   }
 
   return (
     <div
-      className={`absolute inset-0 flex items-center justify-center overflow-hidden bg-gradient-to-br ${meta.gradient} ${className}`}
+      className={`${natural ? 'relative aspect-[4/3] w-full' : 'absolute inset-0'} flex items-center justify-center overflow-hidden bg-gradient-to-br ${meta.gradient} ${className}`}
       role="img"
       aria-label={`${meta.label} event`}
     >

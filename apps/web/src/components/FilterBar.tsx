@@ -33,6 +33,16 @@ export function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
       : undefined
 
   return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2" aria-label="Quick dates">
+        {(['next7', 'today', 'weekend'] as const).map(value => (
+          <button key={value} type="button" aria-pressed={filters.time.length === 1 && filters.time[0] === value}
+            onClick={() => onChange({ time: [value], date: null })}
+            className="min-h-11 rounded-full border border-line bg-surface px-4 text-sm font-bold aria-pressed:border-brand-700 aria-pressed:bg-brand-700 aria-pressed:text-white">
+            {TIME_OPTIONS.find(option => option.value === value)?.label}
+          </button>
+        ))}
+      </div>
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
         <FilterDropdown
@@ -101,6 +111,7 @@ export function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
         </label>
         <SearchToggle value={filters.q} onChange={onSearch} />
       </div>
+    </div>
     </div>
   )
 }

@@ -11,6 +11,7 @@ import {
   timeRanges,
   writeFilters,
   ALL_CATEGORIES,
+  updateFilterParams,
 } from '../src/lib/filters.ts'
 import { cardFee } from '../src/lib/fee.ts'
 import { eventPageUrl, googleMapsUrl } from '../src/lib/maps.ts'
@@ -19,10 +20,23 @@ import { cardPlace, venueName } from '../src/lib/place.ts'
 const plain = (s: string) => s.replace(/ /g, ' ')
 const iso = (d: Date | null) => (d ? d.toISOString() : null)
 
-test('defaults select everything and leave the URL empty', () => {
+test('discovery defaults round-trip without excluding academic search results', () => {
   assert.equal(isDefaultFilters(DEFAULT_FILTERS), true)
   assert.equal(writeFilters(DEFAULT_FILTERS).toString(), '')
   assert.deepEqual(parseFilters(new URLSearchParams('')), DEFAULT_FILTERS)
+  assert.deepEqual(DEFAULT_FILTERS.time, ['next7'])
+  assert.ok(!DEFAULT_FILTERS.categories.includes('academic'))
+  assert.ok(parseFilters(new URLSearchParams('q=lecture')).categories.includes('academic'))
+  assert.deepEqual(parseFilters(new URLSearchParams('cat=all')).categories, ALL_CATEGORIES)
+  assert.deepEqual(parseFilters(writeFilters({ ...DEFAULT_FILTERS, time: ALL_TIMES })).time, ALL_TIMES)
+})
+
+test('explicit category choices survive entering and clearing a search', () => {
+  const searched = updateFilterParams(new URLSearchParams('cat=all'), { q: 'lecture' })
+  const cleared = updateFilterParams(searched, { q: '' })
+  assert.deepEqual(parseFilters(cleared).categories, ALL_CATEGORIES)
+  const chosen = updateFilterParams(new URLSearchParams(), { categories: DEFAULT_FILTERS.categories })
+  assert.deepEqual(parseFilters(updateFilterParams(chosen, { q: 'lecture' })).categories, DEFAULT_FILTERS.categories)
 })
 
 test('a partial selection round-trips through the URL', () => {
@@ -130,24 +144,38 @@ test('"Free only" is off by default and is its own URL flag', () => {
   assert.equal(isDefaultFilters({ ...DEFAULT_FILTERS, freeOnly: true }), false)
 })
 
-test('card place: campus shows the building, off campus shows the neighborhood', () => {
+test('card place includes venue and area without repeating identical labels', () => {
   const campus = {
     area: 'campus' as const,
     location: 'Block Museum of Art, Mary and Leigh, 40 Arts Circle Drive, Evanston, IL, 60208',
     neighborhood: null,
+    region: 'evanston',
   }
-  assert.equal(cardPlace(campus), 'Block Museum of Art')
+  assert.equal(cardPlace(campus), 'Block Museum of Art · Evanston')
 
   const nearby = {
     area: 'nearby' as const,
     location: 'The Neo-Futurist Theater, 5153 N. Ashland Ave., Chicago, IL, 60640',
     neighborhood: 'Andersonville',
   }
-  assert.equal(cardPlace(nearby), 'Andersonville')
+  assert.equal(cardPlace(nearby), 'The Neo-Futurist Theater · Andersonville')
+  assert.equal(cardPlace({ ...nearby, location: 'Andersonville' }), 'Andersonville')
   assert.equal(cardPlace({ ...nearby, neighborhood: null }), 'The Neo-Futurist Theater')
   assert.equal(cardPlace({ area: 'campus', location: 'No Location', neighborhood: null }), null)
   assert.equal(venueName('Online'), 'Online')
   assert.equal(venueName(null), null)
+})
+
+test('next seven days and weekend use calendar boundaries across DST and Sundays', () => {
+  const next = timeRanges({ time: ['next7'], date: null }, new Date('2026-10-28T17:00:00Z'))[0]
+  assert.equal(iso(next.from), '2026-10-28T05:00:00.000Z')
+  assert.equal(iso(next.to), '2026-11-04T06:00:00.000Z')
+  const weekend = timeRanges({ time: ['weekend'], date: null }, new Date('2026-10-28T17:00:00Z'))[0]
+  assert.equal(iso(weekend.from), '2026-10-31T05:00:00.000Z')
+  assert.equal(iso(weekend.to), '2026-11-02T06:00:00.000Z')
+  const sunday = timeRanges({ time: ['weekend'], date: null }, new Date('2026-11-01T17:00:00Z'))[0]
+  assert.equal(iso(sunday.from), '2026-11-01T05:00:00.000Z')
+  assert.equal(iso(sunday.to), '2026-11-02T06:00:00.000Z')
 })
 
 test('card date badge has a weekday and time text has no date', () => {

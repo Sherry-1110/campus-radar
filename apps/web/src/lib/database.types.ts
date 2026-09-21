@@ -39,6 +39,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_coordinates: {
+        Row: { event_id: string; coordinate_location: string; address_query: string; latitude: number; longitude: number; place_id: string; expires_at: string }
+        Insert: { event_id: string; coordinate_location: string; address_query: string; latitude: number; longitude: number; place_id: string; expires_at: string }
+        Update: { event_id?: string; coordinate_location?: string; address_query?: string; latitude?: number; longitude?: number; place_id?: string; expires_at?: string }
+        Relationships: [{ foreignKeyName: 'event_coordinates_event_id_fkey'; columns: ['event_id']; isOneToOne: true; referencedRelation: 'events'; referencedColumns: ['id'] }]
+      }
       event_sources: {
         Row: {
           event_id: string

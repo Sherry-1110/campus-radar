@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router'
-import { isDefaultFilters, parseFilters, writeFilters, type EventFilters } from './filters'
+import { isDefaultFilters, parseFilters, updateFilterParams, type EventFilters } from './filters'
 
 export function useFilters() {
   const [params, setParams] = useSearchParams()
@@ -9,7 +9,7 @@ export function useFilters() {
 
   const update = useCallback(
     (patch: Partial<EventFilters>) => {
-      setParams((prev) => writeFilters({ ...parseFilters(prev), ...patch }), { replace: true })
+      setParams(prev => updateFilterParams(prev, patch), { replace: true })
     },
     [setParams],
   )

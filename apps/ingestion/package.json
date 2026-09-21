@@ -8,6 +8,7 @@
   },
   "scripts": {
     "sync": "node src/run.ts",
+    "coordinates": "node src/coordinates.ts",
     "test": "node --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src test"

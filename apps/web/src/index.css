@@ -64,3 +64,24 @@
     }
   }
 }
+
+.event-grid { columns: 1; column-gap: 1.25rem; }
+.event-map { height: max(420px, calc(100dvh - 280px)); }
+.map-control { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; padding: .65rem .85rem; background: white; border-radius: 999px; box-shadow: var(--shadow-card); font-size: .8rem; font-weight: 700; color: var(--color-ink); }
+.event-pin { display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid white; border-radius: 50% 50% 50% 4px; background: var(--color-brand-700); color: white; font: 700 13px system-ui; box-shadow: 0 2px 7px #0004; }
+.event-pin.is-selected { background: var(--color-accent); color: var(--color-ink); outline: 3px solid var(--color-brand-700); }
+.event-panel { position: fixed; z-index: 45; inset: auto 0 0; display: flex; flex-direction: column; height: 57dvh; max-height: calc(100dvh - 12px); border: 1px solid var(--color-line); border-radius: 24px 24px 0 0; background: var(--color-surface); box-shadow: 0 -4px 35px #1b123026; padding-bottom: env(safe-area-inset-bottom); }
+.event-panel.is-expanded { height: calc(100dvh - 12px); }
+@media (min-width: 520px) { .event-grid { columns: 2; } }
+@media (min-width: 1024px) {
+  .discovery-layout.with-map { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr); gap: 1.5rem; align-items: start; }
+  .discovery-layout:not(.with-map) .event-grid { columns: 3; }
+  .map-column { position: sticky; top: 24px; }
+  .event-map { height: calc(100dvh - 64px); min-height: 480px; }
+  .event-panel, .event-panel.is-expanded { inset: 120px max(40px, calc((100vw - 1540px) / 2)) auto auto; width: min(440px, 40vw); height: calc(100dvh - 200px); border-radius: 20px; box-shadow: 0 12px 60px #1b123033; }
+}
+@media (min-width: 1450px) { .event-grid { columns: 3; } }
+@media (prefers-reduced-motion: no-preference) {
+  .event-panel { animation: event-open .18s ease-out; transition: height .18s ease; }
+  @keyframes event-open { from { opacity: 0; transform: translateY(20px) scale(.97); } to { opacity: 1; transform: none; } }
+}
