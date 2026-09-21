@@ -18,7 +18,8 @@ import { Poster } from '@/components/Poster'
 import { buttonPrimary, buttonSecondary, StateMessage } from '@/components/StateMessage'
 import { downloadIcs, googleCalendarUrl } from '@/lib/calendar'
 import { formatWhenLong } from '@/lib/dates'
-import { useEvent, type EventRow } from '@/lib/events'
+import { useEvent } from '@/lib/events'
+import { eventSource } from '@/lib/eventSource'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function EventDetailPage() {
@@ -83,7 +84,7 @@ function EventDetail({ event }: { event: EventWithSources }) {
   const pageUrl = window.location.href
   const [copied, setCopied] = useState(false)
 
-  const sourceLinks = collectSources(event)
+  const source = eventSource(event)
 
   async function copyLink() {
     try {
@@ -197,55 +198,26 @@ function EventDetail({ event }: { event: EventWithSources }) {
           </section>
         )}
 
-        {sourceLinks.length > 0 && (
+        {source && (
           <section aria-labelledby="source-heading">
             <h2 id="source-heading" className="mb-2 text-sm font-bold uppercase tracking-wider text-ink-muted">
               Source
             </h2>
-            <ul className="flex flex-col gap-1">
-              {sourceLinks.map((s) => (
-                <li key={s.key}>
-                  <a
-                    href={s.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 font-semibold text-brand-700 underline underline-offset-2"
-                  >
-                    {s.name}
-                    <ExternalLink className="size-3.5" aria-hidden="true" />
-                    <span className="sr-only">(opens in a new tab)</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <a
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 font-semibold text-brand-700 underline underline-offset-2"
+            >
+              {source.name}
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
           </section>
         )}
       </div>
     </article>
   )
-}
-
-function collectSources(event: EventWithSources) {
-  const seen = new Set<string>()
-  const links: { key: string; name: string; url: string }[] = []
-  const add = (name: string | undefined, url: string | null | undefined) => {
-    if (!url || seen.has(url)) return
-    seen.add(url)
-    links.push({ key: url, name: name ?? hostname(url), url })
-  }
-  for (const es of event.event_sources ?? []) {
-    add(es.sources?.name, es.source_url ?? es.sources?.url)
-  }
-  add(undefined, (event as EventRow).source_url)
-  return links
-}
-
-function hostname(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return url
-  }
 }
 
 function DetailSkeleton() {

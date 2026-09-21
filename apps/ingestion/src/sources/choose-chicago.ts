@@ -44,7 +44,7 @@ function candidate(e: Record<string, unknown>): Candidate {
   if (typeof e.all_day !== 'boolean') throw new Error(`Choose Chicago ${e.id}: missing all-day flag`)
   const fee = text(e.cost) || null
   const venue = row(e.venue)
-  return { external_id: String(e.id), related_url: url(e.website), data: {
+  return { external_id: String(e.id), related_url: url(e.website) || source, data: {
     title, description: text(e.description) || null, cover_image_url: url(row(e.image).url),
     start_time: start, end_time: end, is_all_day: e.all_day, source_url: source,
     location: ['venue', 'address', 'city', 'state', 'zip'].map(key => text(venue[key])).filter(Boolean).join(', ') || null,

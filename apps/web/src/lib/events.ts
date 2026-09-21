@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import type { Database } from './database.types'
 import { startOfChicagoDay } from './dates'
 import {
@@ -10,6 +10,7 @@ import {
   type EventFilters,
 } from './filters'
 import { supabase } from './supabase'
+import { PAGE_SIZE, pageRange } from './pagination'
 
 export type EventRow = Database['public']['Tables']['events']['Row']
 export type EventListItem = Pick<
@@ -29,22 +30,20 @@ export type EventListItem = Pick<
   | 'is_all_day'
 >
 
-const PAGE_SIZE = 12
 const LIST_COLUMNS =
   'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,neighborhood,is_cancelled,is_all_day'
 
-export function useEvents(filters: EventFilters) {
-  return useInfiniteQuery({
-    queryKey: ['events', filters],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
+export function useEvents(filters: EventFilters, page: number) {
+  return useQuery({
+    queryKey: ['events', filters, page],
+    queryFn: async ({ signal }) => {
       // An empty selection in any filter can match nothing; skip the request.
-      if (matchesNothing(filters)) return { items: [] as EventListItem[], next: null }
+      if (matchesNothing(filters)) return { items: [] as EventListItem[], total: 0, page: 1 }
 
       const now = new Date()
       let query = supabase
         .from('events')
-        .select(LIST_COLUMNS)
+        .select(LIST_COLUMNS, { count: 'exact' })
         .eq('status', 'published')
         // Only today and later, by Chicago calendar date.
         .gte('start_time', startOfChicagoDay(now).toISOString())
@@ -68,18 +67,27 @@ export function useEvents(filters: EventFilters) {
       const term = filters.q.replace(/[,()"\\%*:]/g, ' ').replace(/\s+/g, ' ').trim()
       if (term) query = query.or(`title.ilike.*${term}*,search.wfts(english).${term}`)
 
-      const { data, error } = await query
+      query = query
         .order('start_time', { ascending: true })
         .order('id', { ascending: true })
-        .range(pageParam, pageParam + PAGE_SIZE - 1)
+        .abortSignal(signal)
+
+      let result = await query.range(...pageRange(page))
+      // Saved links can outlive events. Recover an out-of-range page rather than showing an error.
+      const lastPage = Math.max(1, Math.ceil((result.count ?? 0) / PAGE_SIZE))
+      const currentPage = result.error?.code === 'PGRST103' ? 1 : Math.min(page, lastPage)
+      if (currentPage !== page && (!result.error || result.error.code === 'PGRST103')) {
+        result = await query.range(...pageRange(currentPage))
+      }
+      const { data, error, count } = result
 
       if (error) throw error
       return {
         items: data satisfies EventListItem[],
-        next: data.length === PAGE_SIZE ? pageParam + PAGE_SIZE : null,
+        total: count ?? 0,
+        page: currentPage,
       }
     },
-    getNextPageParam: (last) => last.next,
   })
 }
 

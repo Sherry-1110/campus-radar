@@ -14,6 +14,11 @@ const event = (id = 10267502, extra = {}) => ({
 })
 const response = (events: unknown[], extra = {}) => JSON.stringify({ events, total: events.length, total_pages: Math.ceil(events.length / 50), ...extra })
 
+test('visits the listing to discover More info when the API omits its website', async () => {
+  const result=await fetchChooseChicago(async()=>response([event(1,{website:''})]),now)
+  assert.equal(result.items[0].related_url,result.items[0].data.source_url)
+})
+
 test('Choose Chicago preserves occurrence IDs, source poster, UTC DST dates, text, and conservative fees', async () => {
   const result = await fetchChooseChicago(async () => response([event(), event(2, { cost: 'Free' }), event(3, { cost: 'Free with paid admission', image: false })]), now)
   assert.equal(result.items[0]!.external_id, '10267502')
