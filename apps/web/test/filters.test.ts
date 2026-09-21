@@ -191,14 +191,20 @@ test('Google Maps link searches the full address, adding the city for bare venue
   assert.equal(googleMapsUrl(null, 'chicago'), null)
 })
 
-test('the event page link prefers the "More info" page over the listing', () => {
+test('the event page link prefers a verified organizer page, then "More info", then the listing', () => {
+  const listing = 'https://www.choosechicago.com/event/x/'
   assert.equal(
-    eventPageUrl({ more_info_url: 'https://organizer.example/e/1', source_url: 'https://www.choosechicago.com/event/x/' }),
+    eventPageUrl({ more_info_url: 'https://organizer.example/', source_url: 'https://organizer.example/e/1' }),
     'https://organizer.example/e/1',
   )
   assert.equal(
-    eventPageUrl({ more_info_url: null, source_url: 'https://www.choosechicago.com/event/x/' }),
-    'https://www.choosechicago.com/event/x/',
+    eventPageUrl({ more_info_url: 'https://organizer.example/e/1', source_url: listing }),
+    'https://organizer.example/e/1',
+  )
+  assert.equal(eventPageUrl({ more_info_url: null, source_url: listing }), listing)
+  assert.equal(
+    eventPageUrl({ more_info_url: null, source_url: 'https://planitpurple.northwestern.edu/event/9' }),
+    'https://planitpurple.northwestern.edu/event/9',
   )
   assert.equal(eventPageUrl({ more_info_url: null, source_url: null }), null)
 })

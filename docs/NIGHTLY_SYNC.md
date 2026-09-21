@@ -233,14 +233,16 @@ schedule for Sunday Mass, or contradictory structured event dates. Regression co
 the missing organizer image and additional visit details; calendar occurrence times remain intact.
 
 The original organizer becomes the event's primary source link; `event_sources` retains the
-discovery listing, and event details display both. Verified field provenance and the visited chain
+discovery listing for attribution; event details display only the primary original source,
+falling back to the listing when no original is verified. Verified field provenance and the visited chain
 stay in the private snapshot. If a later request fails or loses a field, the SQL wrapper retains
 previously verified content while its underlying calendar field and related URL remain unchanged.
 Calendar changes still reconcile, and existing curator-edit protection still applies.
 
 Enrichment covers ongoing/recent events and the next 180 days. Each source gets at most 400
 distinct pages and eight minutes, with four workers, serial requests per host, and shared fetches
-for recurring occurrences. Daily ordering rotates excess links. Each request has a 20-second
+for recurring occurrences. The nearest ongoing/upcoming occurrence for each organizer is visited
+before repeats or recent past occurrences; daily ordering breaks ties. Each request has a 20-second
 deadline, 2 MiB HTML limit and at most three redirects. Only public HTTPS destinations are allowed:
 credentials and private/reserved addresses are rejected, every redirect is checked, and validated
 DNS answers are pinned to prevent rebinding. No browser session, backend secret or cookie is sent.
@@ -301,8 +303,8 @@ for each source. It holds public-source judgments, never API keys, with a 30-day
 Changed occurrence dates, source text, questions, or model versions invalidate reuse.
 Each source is limited to 150 API attempts and ten minutes of model work, in addition to
 existing page-fetch limits. Requests time out after 20 seconds; 429/5xx get one retry.
-Cache write failures do not stop the import. Deferred work rotates with the existing daily
-link ordering. Persistent queueing can replace this bounded approach if coverage stalls.
+Cache write failures do not stop the import. Deferred work uses the same nearest-event priority
+and daily tie ordering. Persistent queueing can replace this bounded approach if coverage stalls.
 
 Reports and the linked GitHub summary show evaluation outcome, accepted/unmatched/uncertain/
 failed/deferred decisions, cache hits, API attempts and input tokens. `/sources` continues
@@ -313,7 +315,7 @@ part of this first integration.
 The production workflow enables `JEV_MODE=apply`. Manual runs can select one source or
 all sources; scheduled runs always use all four independent adapters. The write checkbox
 controls database writes separately from semantic mode. Original-page work interleaves
-organizers before repeated occurrences, then rotates their order daily. Evaluation or
+organizers before repeated occurrences, prioritizes their nearest events, then rotates ties daily. Evaluation or
 budget failures preserve prior verified enrichment when its calendar baseline is unchanged.
 
 The September 20 rollout preview passed all six live cases. Its first 150 API attempts

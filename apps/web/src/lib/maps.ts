@@ -1,3 +1,8 @@
+import { eventSource } from './eventSource.ts'
+
+// Listing pages on the aggregators, as opposed to an organizer's own page.
+const AGGREGATOR = /^https?:\/\/([^/]*\.)?(choosechicago\.com|planitpurple\.northwestern\.edu)(\/|$)/i
+
 const NO_ADDRESS = /^(no location|online|tbd|to be determined|virtual)$|^online\b/i
 
 /**
@@ -16,7 +21,14 @@ export function googleMapsUrl(location: string | null, region: string | null): s
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
-/** The real event page (the listing's "More info" target), else the listing itself. */
-export function eventPageUrl(event: { more_info_url: string | null; source_url: string | null }): string | null {
-  return event.more_info_url || event.source_url || null
+type EventPageInput = { more_info_url: string | null } & Parameters<typeof eventSource>[0]
+
+/**
+ * The event's own page. Prefer an organizer page that ingestion has already
+ * verified (stored as source_url), then the listing's "More info" target, and
+ * only then the aggregator's listing page.
+ */
+export function eventPageUrl(event: EventPageInput): string | null {
+  const verified = event.source_url && !AGGREGATOR.test(event.source_url) ? event.source_url : null
+  return verified || event.more_info_url || eventSource(event)?.url || null
 }

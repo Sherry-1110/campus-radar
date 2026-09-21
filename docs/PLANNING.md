@@ -102,10 +102,10 @@ Categories (database values): arts, music, sports, academic, career, social, wel
 - [x] Place fields (`area`, `region`, `neighborhood`) added by migration `event_place_filters`, applied via the Supabase MCP (recorded remotely as version `20260920074510`)
 - [ ] Repair the remote migration history: `20260920120000`, `20260920180000` and `20260920210000` were applied outside the CLI and are not recorded, so `supabase db push` would try to re-apply them (`supabase migration repair --status applied <version>`)
 - [ ] Decide the final names for the "From" filter and the "In between" location option
-- [x] Cloudflare Workers (Static Assets) config and a manual deployment on `campus-radar.com` (currently the starter page; redeploy to publish the real app)
+- [x] Cloudflare Workers (Static Assets) config and a manual deployment on `campus-radar.com`
 - [x] Apply migration `20260920040000` (poster permissions, location-aware dedupe) to the hosted database
 - [ ] Ingestion scaffold: `apps/ingestion`
-- [ ] Cloudflare GitHub integration authorized by the repository owner, auto-deploy on push
+- [x] GitHub Actions CI deploys successful `main` pushes to Cloudflare; scoped `CLOUDFLARE_API_TOKEN` repository secret, no Cloudflare GitHub App required (see README Deployment)
 
 **Phase 1 — MVP**
 - Scraper adapters for 3–5 highest-value structured sources (PlanItPurple, Eventbrite, Bienen calendar, Wirtz, GroupX schedule); each source isolated so one failing doesn't break the run

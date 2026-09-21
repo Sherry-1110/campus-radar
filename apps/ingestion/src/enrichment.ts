@@ -63,21 +63,46 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   if(events.length && !event) return null
   const heading=$('meta[property="og:title"]').attr('content')||$('h1').first().text()||$('title').text()
   const body=$('article .sidearm-story-body, .sidearm-story-body, [itemprop="articleBody"], article').first().clone()
-  body.find('script,style,nav,header,footer,aside,form,button,[aria-hidden="true"]').remove()
+  const content=body.length?body:$('main,[role="main"]').first().clone()
+  content.find('script,style,nav,header,footer,aside,form,button,[aria-hidden="true"],.section-sponsors,.section-text-cta,.section-cards,.section-large-cards').remove()
   const titleWords=new Set(words(heading))
   const corroborated=$('article').length===1 && words(item.data.title).some(w=>w.length>=4 && !['campus','event','events','calendar'].includes(w) && titleWords.has(w))
     && body.find('p').toArray().some(el=>descriptionMatches(item.data.description||'',text($(el).html())))
-  const pageMatches=matches(item.data.title,heading)||corroborated
+  const pageMatches=matches(item.data.title,heading)||matches(item.data.title,$('h1').first().text())||corroborated
   if(!event && !pageMatches) return null
-  const article=text(body.html())
+  let article=text(content.html())
+  if(/\btickets?\b/i.test(heading)) {
+    // ponytail: omit premium ticket sales sections from the fallback description;
+    // semantic selection handles less conventional sales-page headings.
+    let section=''
+    const passages:string[]=[]
+    for(const el of content.find('h1,h2,h3,h4,h5,h6,p,li').toArray()) {
+      const node=$(el),value=text(node.html())
+      if(/^h[1-6]$/.test(el.tagName)){section=value;continue}
+      if(node.is('li')&&node.find('p,li').length)continue
+      if(value.length>=30 && !/vip|deluxe|backstage|consignment|group rates/i.test(section) && !passages.includes(value))passages.push(value)
+    }
+    article=passages.join('\n\n')
+  }
   // Visible article content is often newer than stale article metadata.
-  const description=event ? text(event.description) : article.length>=80 ? article : text($('meta[property="og:description"]').attr('content')||$('meta[name="description"]').attr('content'))
-  const poster=image(event?.image,pageUrl)||(pageMatches?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
+  const structuredDescription=text(event?.description)
+  const description=pageMatches && (!structuredDescription || /(?:…|\.{3})$/.test(structuredDescription)) && article.length>=80 && article.length>structuredDescription.length ? article : structuredDescription || text($('meta[property="og:description"]').attr('content')||$('meta[name="description"]').attr('content'))
+  const titleTokens=words(item.data.title),year=occurrence.slice(0,4)
+  const visiblePoster=content.find('img').toArray().map(el=>{
+    const n=$(el),url=image(n.attr('data-src'),pageUrl)||image(n.attr('src'),pageUrl)
+    const context=`${n.attr('alt')||''} ${url?new URL(url).pathname.split('/').pop():''}`
+    const tokens=new Set(words(context))
+    // Prefer explicitly identified event art, never arbitrary photos or past-year posters.
+    return url && /poster|lineup|admat/i.test(context) && !/presale/i.test(context)
+      && ![...tokens].some(w=>/^20\d\d$/.test(w)&&w!==year)
+      && titleTokens.filter(w=>tokens.has(w)).length>=Math.min(2,titleTokens.length) ? url : null
+  }).find(Boolean)
+  const poster=(pageMatches?visiblePoster:null)||image(event?.image,pageUrl)||(pageMatches?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
   const next=event?[event.url,...(Array.isArray(event.sameAs)?event.sameAs:[event.sameAs])].map(v=>link(v,pageUrl)).filter((v):v is string=>Boolean(v&&v!==pageUrl)):[]
-  for(const a of body.find('a[href]').toArray()) {
+  for(const a of content.find('a[href]').toArray()) {
     if(/^(?:more (?:info(?:rmation)?|details)|full details|event website|official (?:event|website)|learn more)$/i.test(text($(a).text()))) {
       const target=link($(a).attr('href'),pageUrl)
-      if(target && target!==pageUrl) next.push(target)
+      if(target && target!==pageUrl) next.unshift(target)
     }
   }
   return { description:description||null,image:poster,next:[...new Set(next)] }
@@ -103,14 +128,16 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
     }
     return page
   }
-  // ponytail: at most 400 distinct pages / 8 minutes per source. Daily ordering rotates
-  // overflow fairly; add a persistent queue only if this limit prevents useful coverage.
+  // ponytail: at most 400 distinct pages / 8 minutes per source. Nearest events go first;
+  // daily ties rotate. Add a persistent queue if this limit prevents useful coverage.
   const date=now.toISOString().slice(0,10)
   const eligible=items.filter(i=>i.related_url && Date.parse(i.data.end_time||i.data.start_time)>=now.getTime()-86400000 && Date.parse(i.data.start_time)<=now.getTime()+180*86400000)
+  const priority=(i:Candidate)=>Date.parse(i.data.end_time||i.data.start_time)<now.getTime()?Infinity:Math.max(now.getTime(),Date.parse(i.data.start_time))
+  eligible.sort((a,b)=>priority(a)-priority(b))
   const counts=new Map<string,number>(),ranks=new Map<Candidate,number>()
   for(const item of eligible){const count=counts.get(item.related_url!)||0;ranks.set(item,count);counts.set(item.related_url!,count+1)}
   // Visit each organizer before repeats so one long-running series cannot exhaust the AI budget.
-  eligible.sort((a,b)=>ranks.get(a)!-ranks.get(b)! || createHash('sha256').update(date+a.related_url).digest('hex').localeCompare(createHash('sha256').update(date+b.related_url).digest('hex')))
+  eligible.sort((a,b)=>ranks.get(a)!-ranks.get(b)! || priority(a)-priority(b) || createHash('sha256').update(date+a.related_url).digest('hex').localeCompare(createHash('sha256').update(date+b.related_url).digest('hex')))
   let index=0
   await Promise.all(Array.from({length:4},async()=>{
     while(index<eligible.length){
