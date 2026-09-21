@@ -331,3 +331,25 @@ in the enrichment phase. The public Sheil event retained its organizer photo and
 the broad multi-campus article with the relevant Sunday Evanston passage. Many pages
 remain uncertain, inaccessible, or budget-deferred; this rollout does not promise full
 coverage or a poster for every event.
+
+### Stored event posters
+
+Apply runs copy selected external posters to the existing public `event-posters`
+bucket before reconciliation. Copies are shared by original URL under
+`imported/<sha256-of-source-url>.webp`; `private.event_poster_copies` retains the
+original URL. Downloads use the same public-address/DNS/redirect guards as event
+pages, with a 20 MiB input limit, 40 million pixel decode limit, and WebP output
+at most 1600 pixels per side and 5 MiB. Existing copies are reused without another
+external download. Nightly poster work stops starting new downloads after five
+minutes so calendar reconciliation can proceed; the dedicated backfill has no
+such per-source budget. A changed source URL creates a new copy; in-place changes at
+an unchanged source URL are intentionally not refreshed yet. Old copies are kept
+because past events may still reference them.
+
+Run **Store event posters** in GitHub Actions to backfill existing records, or
+run `node src/posters.ts --apply` from `apps/ingestion` with the same backend
+Supabase environment as the importer. The upload must succeed before the URL is
+registered. Registration atomically updates matching event URLs and importer
+baselines. Failed downloads retain the prior poster and appear in
+`poster-report.json`; rerunning retries failures and reuses completed copies.
+No public storage write permissions or frontend credentials are added.

@@ -174,10 +174,40 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     assert.equal((await db.query<{cover_image_url:string}>("select cover_image_url from events where title='Detailed original event'")).rows[0].cover_image_url,detailed.data.cover_image_url,'A valid page without artwork must not erase a previously verified image')
     assert.equal((await db.query<{source_url:string}>("select source_url from event_sources where external_id='detail-1'")).rows[0].source_url,detailed.listing_url)
 
+    // Backfill must update the baseline, so later syncs can still replace posters.
+    const remote = detailed.data.cover_image_url
+    const stored = 'https://project.supabase.co/storage/v1/object/public/event-posters/imported/' + 'a'.repeat(64) + '.webp'
+    const path = 'imported/' + 'a'.repeat(64) + '.webp'
+    await db.query("insert into storage.objects(bucket_id,name) values ('event-posters',$1)", [path])
+    await db.exec('set role service_role')
+    await db.query('select public.remember_event_poster($1,$2,$3)', [remote,path,stored])
+    await db.exec('reset role')
+    const poster = async () => (await db.query<{cover_image_url:string}>("select cover_image_url from events where title='Detailed original event'")).rows[0].cover_image_url
+    assert.equal(await poster(),stored)
+    await sync([detailed], 'Choose Chicago')
+    assert.equal(await poster(),stored,'An unchanged remote URL must resolve to its stored copy')
+    detailed.data.cover_image_url='https://organizer.example/new.jpg'
+    await sync([detailed], 'Choose Chicago')
+    assert.equal(await poster(),stored,'An unavailable replacement must preserve the stored poster')
+    const nextPath='imported/'+'b'.repeat(64)+'.webp', nextStored=stored.replace('a'.repeat(64),'b'.repeat(64))
+    await db.query("insert into storage.objects(bucket_id,name) values ('event-posters',$1)", [nextPath])
+    await db.exec('set role service_role')
+    await db.query('select public.remember_event_poster($1,$2,$3)', [detailed.data.cover_image_url,nextPath,nextStored])
+    await db.exec('reset role')
+    await sync([detailed], 'Choose Chicago')
+    assert.equal(await poster(),nextStored,'A successful replacement must still update after backfill')
+    await db.query("update events set cover_image_url='https://curator.example/custom.jpg' where title='Detailed original event'")
+    detailed.data.cover_image_url=remote
+    await sync([detailed], 'Choose Chicago')
+    assert.equal(await poster(),'https://curator.example/custom.jpg','Keep curator changes')
+    await assert.rejects(db.query('select public.remember_event_poster($1,$2,$3)', [remote,'imported/'+'c'.repeat(64)+'.webp',stored]), /uploaded|storage/i)
+
     for (const role of ['anon', 'authenticated']) {
       await db.exec(`set role ${role}`)
       await assert.rejects(db.query('select public.sync_source_events($1,$2::jsonb,$3)', ['PlanItPurple', JSON.stringify([candidate]), run3]), /permission denied/)
       await assert.rejects(db.query('select * from private.ingestion_items'), /permission denied/)
+      await assert.rejects(db.query('select public.get_event_poster_copies($1)', [[remote]]), /permission denied/)
+      await assert.rejects(db.query('select public.remember_event_poster($1,$2,$3)', [remote,path,stored]), /permission denied/)
       assert.equal((await health()).status, 'failed', 'Public can read safe health')
       await assert.rejects(db.query("select public.begin_source_sync('PlanItPurple',null)"), /permission denied/)
       await assert.rejects(db.query("update public.source_health set status='succeeded'"), /permission denied/)

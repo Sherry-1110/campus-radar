@@ -2,6 +2,7 @@ import { appendFile, writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createClient } from '@supabase/supabase-js'
+import { storePosters } from './posters.ts'
 import { enrichSource } from './enrichment.ts'
 import { fetchOriginal } from './original-fetch.ts'
 import { createJev } from './semantic.ts'
@@ -192,11 +193,15 @@ async function main() {
         if (error) throw new Error(`Cannot finish source monitor: ${error.code}`)
       },
     }
-    apply = (source, items) => writeBatches(source, items, async (name, batch) => {
-      const { data, error } = await client.rpc('sync_source_events', { p_source_name: name, p_items: batch, p_run_id: runIds.get(name) })
-      if (error) throw new Error(`Database sync ${error.code}: ${error.message}`)
-      return data as Record<string, number>
-    })
+    apply = async (source, items) => {
+      const { failures: _, ...posters } = await storePosters(client, items.flatMap(item => item.data.cover_image_url ? [item.data.cover_image_url] : []), undefined, 5 * 60_000)
+      console.log(JSON.stringify({ poster_storage: posters }))
+      return writeBatches(source, items, async (name, batch) => {
+        const { data, error } = await client.rpc('sync_source_events', { p_source_name: name, p_items: batch, p_run_id: runIds.get(name) })
+        if (error) throw new Error(`Database sync ${error.code}: ${error.message}`)
+        return data as Record<string, number>
+      })
+    }
   }
   const sources = registry.filter(source => values.source === 'all' || values.source === source.id)
     .map(source => ({ name: source.name, fetch: async () => {

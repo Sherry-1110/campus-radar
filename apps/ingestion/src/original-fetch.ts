@@ -45,9 +45,7 @@ export function assertPublicUrl(raw: string): URL {
   return url
 }
 
-const MAX_BYTES = 2 * 1024 * 1024
-
-async function fetchPages(raw: string, signal: AbortSignal): Promise<{ html: string; url: string }> {
+async function fetchResource(raw: string, signal: AbortSignal, types: string[], maxBytes: number): Promise<{ body: Buffer; url: string }> {
   let url = assertPublicUrl(raw)
   for (let redirects = 0; redirects <= 3; redirects++) {
     signal.throwIfAborted()
@@ -57,13 +55,13 @@ async function fetchPages(raw: string, signal: AbortSignal): Promise<{ html: str
     signal.throwIfAborted()
     if (!addresses.length || addresses.some(item => !isPublicAddress(item.address) || item.family !== isIP(item.address))) throw new Error('Public page DNS must contain only public addresses')
     const address = addresses[0]!
-    const response = await new Promise<{ html?: string; location?: string }>((resolve, reject) => {
+    const response = await new Promise<{ body?: Buffer; location?: string }>((resolve, reject) => {
       const request = https.request(url, {
         method: 'GET', agent: false, family: address.family, rejectUnauthorized: true,
         signal, maxHeaderSize: 16 * 1024,
         // Pin the validated answer while retaining the hostname for SNI/certificate checks.
         lookup: (_hostname, _options, callback) => callback(null, address.address, address.family),
-        headers: { 'User-Agent': 'CampusRadar/1.0 (+https://campus-radar.com)', Accept: 'text/html, application/xhtml+xml', 'Accept-Encoding': 'identity' },
+        headers: { 'User-Agent': 'CampusRadar/1.0 (+https://campus-radar.com)', Accept: types.join(', '), 'Accept-Encoding': 'identity' },
       }, incoming => {
         incoming.on('error', reject)
         const fail = (message: string) => { incoming.destroy(); reject(new Error(message)) }
@@ -77,32 +75,37 @@ async function fetchPages(raw: string, signal: AbortSignal): Promise<{ html: str
         }
         if (status !== 200) return fail(`Original page HTTP ${status}`)
         const contentType = (incoming.headers['content-type'] || '').split(';')[0]!.trim().toLowerCase()
-        if (!['text/html', 'application/xhtml+xml'].includes(contentType)) return fail('Original page must be HTML')
+        if (!types.includes(contentType)) return fail('Unexpected content type; original pages must be HTML')
         if (incoming.headers['content-encoding'] && incoming.headers['content-encoding'] !== 'identity') return fail('Unsupported original page encoding')
-        if (Number(incoming.headers['content-length']) > MAX_BYTES) return fail('Original page exceeds 2 MiB')
+        if (Number(incoming.headers['content-length']) > maxBytes) return fail(`Original resource exceeds ${maxBytes / 1024 / 1024} MiB`)
         const chunks: Buffer[] = []
         let bytes = 0
         incoming.on('data', (chunk: Buffer) => {
           bytes += chunk.length
-          if (bytes > MAX_BYTES) { fail('Original page exceeds 2 MiB'); return }
+          if (bytes > maxBytes) { fail(`Original resource exceeds ${maxBytes / 1024 / 1024} MiB`); return }
           chunks.push(Buffer.from(chunk))
         })
-        incoming.on('end', () => resolve({ html: Buffer.concat(chunks).toString('utf8') }))
+        incoming.on('end', () => resolve({ body: Buffer.concat(chunks) }))
       })
       request.on('error', reject)
       request.end()
     })
-    if (response.html !== undefined) return { html: response.html, url: url.href }
+    if (response.body !== undefined) return { body: response.body, url: url.href }
     if (redirects === 3) throw new Error('Original page exceeds three redirects')
     url = assertPublicUrl(new URL(response.location!, url).href)
   }
   throw new Error('Original page redirect limit')
 }
 
-export async function fetchOriginal(url: string): Promise<{ html: string; url: string }> {
+export async function fetchPublicFile(url: string, types: string[], maxBytes: number): Promise<{ body: Buffer; url: string }> {
   const controller = new AbortController()
   const expired = new Promise<never>((_, reject) => controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true }))
   const deadline = setTimeout(() => controller.abort(new Error('Original page deadline exceeded')), 20_000)
-  try { return await Promise.race([fetchPages(url, controller.signal), expired]) }
+  try { return await Promise.race([fetchResource(url, controller.signal, types, maxBytes), expired]) }
   finally { clearTimeout(deadline) }
+}
+
+export async function fetchOriginal(url: string): Promise<{ html: string; url: string }> {
+  const result = await fetchPublicFile(url, ['text/html', 'application/xhtml+xml'], 2 * 1024 * 1024)
+  return { html: result.body.toString('utf8'), url: result.url }
 }

@@ -1,0 +1,37 @@
+name: Store event posters
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-event-sync
+  cancel-in-progress: false
+
+jobs:
+  posters:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Store existing event posters
+        working-directory: apps/ingestion
+        env:
+          SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node src/posters.ts --apply
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: poster-backfill-report
+          path: apps/ingestion/poster-report.json
+          if-no-files-found: ignore
+          retention-days: 14

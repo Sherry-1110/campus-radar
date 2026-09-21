@@ -122,3 +122,19 @@ test('original-page deadline also aborts a request stalled before response heade
   await rejection
   assert.equal(signal.aborted, true)
 })
+
+test('poster downloads reuse redirect/DNS protection and enforce binary size and MIME limits', async t => {
+  const { fetchPublicFile } = await import('../src/original-fetch.ts')
+  t.mock.method(dns, 'lookup', async () => [{ address: '8.8.8.8', family: 4 }])
+  const body = Buffer.from([0, 128, 255, 17])
+  transport(t, [
+    { headers: { 'content-type': 'image/png' }, body },
+    { headers: { 'content-type': 'image/png' }, body: Buffer.alloc(9) },
+    { headers: { 'content-type': 'text/html' } },
+    { status: 302, headers: { location: 'https://127.0.0.1/private.png' } },
+  ])
+  assert.deepEqual((await fetchPublicFile('https://public.example.com/poster', ['image/png'], 8)).body, body)
+  await assert.rejects(fetchPublicFile('https://public.example.com/poster', ['image/png'], 8), /exceeds/)
+  await assert.rejects(fetchPublicFile('https://public.example.com/poster', ['image/png'], 8), /content type|HTML/)
+  await assert.rejects(fetchPublicFile('https://public.example.com/poster', ['image/png'], 8), /public address/)
+})
