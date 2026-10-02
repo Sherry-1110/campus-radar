@@ -43,15 +43,28 @@ jobs:
       - name: Verify production
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          curl --fail --silent --show-error --retry 3 --retry-all-errors --max-time 30 \
-            -H 'Sec-Fetch-Mode: navigate' https://campus-radar.com/ -o /tmp/campus-radar-live.html
           node --input-type=module <<'JS'
           import { readFileSync } from 'node:fs'
           import assert from 'node:assert/strict'
+          import { setTimeout } from 'node:timers/promises'
           const expected = readFileSync('apps/web/dist/client/index.html', 'utf8')
-          const actual = readFileSync('/tmp/campus-radar-live.html', 'utf8')
           const assets = [...expected.matchAll(/(?:src|href)="(\/assets\/[^"?]+)"/g)].map(match => match[1])
           assert.ok(assets.length, 'Build must contain versioned assets')
-          for (const asset of assets) assert.ok(actual.includes(asset), `Live build is missing ${asset}`)
+          let verified = false
+          for (let attempt = 1; attempt <= 12; attempt++) {
+            try {
+              const response = await fetch('https://campus-radar.com/', {
+                headers: { 'Sec-Fetch-Mode': 'navigate', 'Cache-Control': 'no-cache' },
+                signal: AbortSignal.timeout(30000),
+              })
+              assert.ok(response.ok, `Live site returned HTTP ${response.status}`)
+              const actual = await response.text()
+              verified = assets.every(asset => actual.includes(asset))
+              if (verified) break
+              console.log(`Waiting for deployed assets (${attempt}/12)`)
+            } catch (error) { console.log(`Verification attempt ${attempt}/12: ${error.message}`) }
+            if (attempt < 12) await setTimeout(5000)
+          }
+          assert.ok(verified, 'Live site did not serve the deployed build within the retry window')
           JS
           echo "Deployed commit $GITHUB_SHA to https://campus-radar.com" >> "$GITHUB_STEP_SUMMARY"
