@@ -94,6 +94,13 @@ and admin review are still pending.
 
 To change the schema, add a new file with `npx supabase migration new <name>`. Review pending migrations with `npx supabase db push --linked --dry-run`, then apply them with `npx supabase db push --linked`. Don't edit migrations that have already been applied. The three previously missing history entries were repaired on 2026-09-21; do not rerun their SQL.
 
+Recurring dates remain separate `events` rows linked by `series_id`. A database trigger
+assigns imported rows to a series using known stable source links or exact detailed
+content plus title, venue, source and year. Ambiguous matches stay separate; edited
+content and year boundaries can split content-based matches. `browse_events` filters
+occurrences before grouping and pagination. Saves and calendar links use occurrence IDs.
+The existing rows were backfilled on 2026-10-02 without removing dates.
+
 ## Deployment
 
 The existing [CI workflow](.github/workflows/ci.yml) tests, lints, type-checks, and builds
@@ -122,9 +129,11 @@ After applying migrations to a disposable local Supabase database, run:
 
 ```sh
 psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/regressions.sql
+psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/recurring_events.sql
 ```
 
 The SQL checks poster ownership/deletion, unsafe poster URLs, and location-aware
-deduplication; each test rolls back its data. Do not point it at production.
+deduplication, recurring-date grouping, filtering and public access; each test rolls back
+its data. Do not point it at production.
 Submission poster URLs currently use the production Supabase origin declared in the
 migration; changing projects or using a local storage origin requires updating that validation.

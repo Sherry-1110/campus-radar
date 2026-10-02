@@ -31,6 +31,8 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     // These existing checks require a fresh database with no imported events.
     await db.exec(await readFile(new URL('../../../supabase/tests/regressions.sql', import.meta.url), 'utf8'))
 
+    await db.exec(await readFile(new URL('../../../supabase/tests/recurring_events.sql', import.meta.url), 'utf8'))
+
     const candidate = {
       external_id: '123', related_url: null as string | null,
       data: {

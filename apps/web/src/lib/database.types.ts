@@ -12,38 +12,60 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       event_coordinates: {
-        Row: { event_id: string; coordinate_location: string; address_query: string; latitude: number; longitude: number; place_id: string; expires_at: string }
-        Insert: { event_id: string; coordinate_location: string; address_query: string; latitude: number; longitude: number; place_id: string; expires_at: string }
-        Update: { event_id?: string; coordinate_location?: string; address_query?: string; latitude?: number; longitude?: number; place_id?: string; expires_at?: string }
-        Relationships: [{ foreignKeyName: 'event_coordinates_event_id_fkey'; columns: ['event_id']; isOneToOne: true; referencedRelation: 'events'; referencedColumns: ['id'] }]
+        Row: {
+          address_query: string
+          coordinate_location: string
+          event_id: string
+          expires_at: string
+          latitude: number
+          longitude: number
+          place_id: string
+        }
+        Insert: {
+          address_query: string
+          coordinate_location: string
+          event_id: string
+          expires_at: string
+          latitude: number
+          longitude: number
+          place_id: string
+        }
+        Update: {
+          address_query?: string
+          coordinate_location?: string
+          event_id?: string
+          expires_at?: string
+          latitude?: number
+          longitude?: number
+          place_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_coordinates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_series: {
+        Row: {
+          id: string
+          identity_key: string
+        }
+        Insert: {
+          id?: string
+          identity_key: string
+        }
+        Update: {
+          id?: string
+          identity_key?: string
+        }
+        Relationships: []
       }
       event_sources: {
         Row: {
@@ -112,6 +134,7 @@ export type Database = {
           region: Database["public"]["Enums"]["event_region"]
           school_id: string
           search: unknown
+          series_id: string | null
           source_id: string | null
           source_url: string | null
           start_time: string
@@ -141,6 +164,7 @@ export type Database = {
           region: Database["public"]["Enums"]["event_region"]
           school_id: string
           search?: unknown
+          series_id?: string | null
           source_id?: string | null
           source_url?: string | null
           start_time: string
@@ -170,6 +194,7 @@ export type Database = {
           region?: Database["public"]["Enums"]["event_region"]
           school_id?: string
           search?: unknown
+          series_id?: string | null
           source_id?: string | null
           source_url?: string | null
           start_time?: string
@@ -191,6 +216,13 @@ export type Database = {
             columns: ["school_id"]
             isOneToOne: false
             referencedRelation: "schools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "event_series"
             referencedColumns: ["id"]
           },
           {
@@ -474,9 +506,41 @@ export type Database = {
         Args: { p_run_url?: string; p_source_name: string }
         Returns: string
       }
+      browse_events: {
+        Args: {
+          p_areas?: Database["public"]["Enums"]["event_area"][]
+          p_bounds?: Json
+          p_categories?: Database["public"]["Enums"]["event_category"][]
+          p_free?: boolean
+          p_group?: boolean
+          p_ids?: string[]
+          p_located?: boolean
+          p_ranges?: Json
+          p_regions?: Database["public"]["Enums"]["event_region"][]
+          p_term?: string
+        }
+        Returns: {
+          event: Json
+        }[]
+      }
       finish_source_sync: {
         Args: { p_run_id: string; p_status: string; p_summary: Json }
         Returns: undefined
+      }
+      get_event_poster_copies: {
+        Args: { p_urls: string[] }
+        Returns: {
+          source_url: string
+          stored_url: string
+        }[]
+      }
+      remember_event_poster: {
+        Args: {
+          p_source_url: string
+          p_storage_path: string
+          p_stored_url: string
+        }
+        Returns: number
       }
       submit_event: {
         Args: {
@@ -645,9 +709,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       event_area: ["campus", "nearby"],

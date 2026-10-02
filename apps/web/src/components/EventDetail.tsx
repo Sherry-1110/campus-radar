@@ -1,4 +1,5 @@
 import { CalendarDays, CalendarPlus, Check, Download, ExternalLink, Link2, MapPin } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router'
 import { useState } from 'react'
 import { CategoryChip } from './CategoryChip'
 import { FeeBadge } from './FeeBadge'
@@ -7,11 +8,22 @@ import { SaveButton } from './SaveButton'
 import { buttonPrimary, buttonSecondary } from './StateMessage'
 import { downloadIcs, googleCalendarUrl } from '@/lib/calendar'
 import { formatWhenLong } from '@/lib/dates'
-import { feeLabel, type EventRow } from '@/lib/events'
+import { feeLabel, useSeriesDates, type EventRow } from '@/lib/events'
 import { eventPageUrl, googleMapsUrl } from '@/lib/maps'
 const externalLink = 'inline-flex items-center gap-1 font-semibold text-brand-700 underline underline-offset-2'
 
 export function EventDetail({ event, compact = false }: { event: EventRow; compact?: boolean }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const series = useSeriesDates(event.series_id)
+  const dates = series.data?.some(date => date.id === event.id) ? series.data : [event, ...(series.data ?? [])]
+  function chooseDate(id: string) {
+    if (compact) {
+      const params = new URLSearchParams(location.search)
+      params.set('event', id)
+      navigate({ search: params.toString() }, { replace: true, preventScrollReset: true })
+    } else navigate(`/events/${id}`, { replace: true })
+  }
   const when = formatWhenLong(event.start_time, event.end_time, event.is_all_day)
   const pageUrl = `${window.location.origin}/events/${event.id}`
   const [copied, setCopied] = useState(false)
@@ -70,6 +82,21 @@ export function EventDetail({ event, compact = false }: { event: EventRow; compa
             </a>
           )}
         </header>
+
+        {event.series_id && <div>
+          {series.isPending ? <p role="status" className="text-sm text-ink-muted">Loading dates…</p> : series.isError ?
+            <p role="status" className="text-sm text-ink-muted">Other dates couldn’t be loaded. <button type="button" className="underline" onClick={() => series.refetch()}>Try again</button></p> :
+            dates.length > 1 && <label className="flex flex-col gap-2 text-sm font-semibold">
+              Choose a date · Central Time
+              <select value={event.id} onChange={e => chooseDate(e.target.value)} className="min-h-11 w-full rounded-xl border border-line bg-surface p-3">
+                {dates.map(date => {
+                  const when = formatWhenLong(date.start_time, date.end_time, date.is_all_day)
+                  return <option key={date.id} value={date.id}>{when.date} · {when.time}{date.is_cancelled ? ' · Canceled' : ''}</option>
+                })}
+              </select>
+              <span className="font-normal text-ink-muted">Save and calendar actions apply to this date.</span>
+            </label>}
+        </div>}
 
         <dl className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card">
           <div className="flex gap-3">

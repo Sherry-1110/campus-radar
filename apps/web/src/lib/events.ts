@@ -5,12 +5,14 @@ import { queryEvents } from './eventQuery'
 import { withinBounds, type MapBounds } from './geo'
 import { demoMaps, locateDemoEvents } from './demoCoordinates'
 import { supabase } from './supabase'
+import { startOfChicagoDay } from './dates'
 import { PAGE_SIZE, pageRange } from './pagination'
 
 export type EventRow = Database['public']['Tables']['events']['Row']
 export type EventListItem = Pick<
   EventRow,
   | 'id'
+  | 'series_id'
   | 'title'
   | 'cover_image_url'
   | 'start_time'
@@ -24,10 +26,10 @@ export type EventListItem = Pick<
   | 'neighborhood'
   | 'is_cancelled'
   | 'is_all_day'
->
+> & { matching_dates?: number }
 
 const LIST_COLUMNS =
-  'id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,region,neighborhood,is_cancelled,is_all_day'
+  'id,series_id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,region,neighborhood,is_cancelled,is_all_day'
 
 export function useEvents(filters: EventFilters, page: number, bounds: MapBounds | null = null) {
   return useQuery({
@@ -36,15 +38,14 @@ export function useEvents(filters: EventFilters, page: number, bounds: MapBounds
       // An empty selection in any filter can match nothing; skip the request.
       if (matchesNothing(filters)) return { items: [] as EventListItem[], total: 0, page: 1 }
 
+      let ids: string[] | undefined
       if (demoMaps && bounds) {
         const all = await fetchAllEvents(filters, signal)
         const { located } = await locateDemoEvents(all)
-        const ids = new Set(located.filter(event => withinBounds(event.event_coordinates, bounds)).map(e => e.id))
-        const matching = all.filter(e => ids.has(e.id))
-        const currentPage = Math.min(page, Math.max(1, Math.ceil(matching.length / PAGE_SIZE)))
-        return { items: matching.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), total: matching.length, page: currentPage }
+        ids = located.filter(event => withinBounds(event.event_coordinates, bounds)).map(e => e.id)
       }
-      const query = queryEvents(supabase, filters, LIST_COLUMNS, bounds).abortSignal(signal).returns<EventListItem[]>()
+      const query = queryEvents(supabase, filters, { bounds: demoMaps ? null : bounds, ids })
+        .abortSignal(signal).returns<Array<{ event: EventListItem }>>()
 
       let result = await query.range(...pageRange(page))
       // Saved links can outlive events. Recover an out-of-range page rather than showing an error.
@@ -57,7 +58,7 @@ export function useEvents(filters: EventFilters, page: number, bounds: MapBounds
 
       if (error) throw error
       return {
-        items: data satisfies EventListItem[],
+        items: data.map(row => row.event),
         total: count ?? 0,
         page: currentPage,
       }
@@ -92,12 +93,12 @@ export function feeLabel(event: Pick<EventRow, 'is_free' | 'fee_text'>): string 
 
 export type MapEvent = { id: string; title: string; event_coordinates: { latitude: number; longitude: number } }
 
-async function fetchAllEvents(filters: EventFilters, signal: AbortSignal) {
+async function fetchAllEvents(filters: EventFilters, signal: AbortSignal, options: Parameters<typeof queryEvents>[2] = { group: false }) {
   const items: EventListItem[] = []
   for (let offset = 0; ; offset += 500) {
-    const { data, error } = await queryEvents(supabase, filters, LIST_COLUMNS).range(offset, offset + 499).abortSignal(signal).returns<EventListItem[]>()
+    const { data, error } = await queryEvents(supabase, filters, options).range(offset, offset + 499).abortSignal(signal).returns<Array<{ event: EventListItem }>>()
     if (error) throw error
-    items.push(...data)
+    items.push(...data.map(row => row.event))
     if (data.length < 500) return items
   }
 }
@@ -109,14 +110,16 @@ export function useMapEvents(filters: EventFilters, bounds: MapBounds | null, en
       if (matchesNothing(filters)) return { located: [] as MapEvent[], deferred: 0, warning: '' }
       if (demoMaps) {
         const result = await locateDemoEvents(await fetchAllEvents(filters, signal))
-        return { ...result, located: result.located.filter(event => withinBounds(event.event_coordinates, bounds)) }
+        const locations = new Map(result.located.filter(event => withinBounds(event.event_coordinates, bounds)).map(e => [e.id, e]))
+        const grouped = await fetchAllEvents(filters, signal, { ids: [...locations.keys()], group: true })
+        return { ...result, located: grouped.map(e => locations.get(e.id)!) }
       }
       const located: MapEvent[] = []
       for (let offset = 0; ; offset += 500) {
-        const { data, error } = await queryEvents(supabase, filters, 'id,title', bounds, true)
-          .range(offset, offset + 499).abortSignal(signal).returns<MapEvent[]>()
+        const { data, error } = await queryEvents(supabase, filters, { bounds, pins: true })
+          .range(offset, offset + 499).abortSignal(signal).returns<Array<{ event: MapEvent }>>()
         if (error) throw error
-        located.push(...data)
+        located.push(...data.map(row => row.event))
         if (data.length < 500) return { located, deferred: 0, warning: '' }
       }
     },
@@ -135,6 +138,25 @@ export function useSavedEventRows(ids: string[]) {
         items.push(...data)
       }
       return items.sort((a, b) => a.start_time.localeCompare(b.start_time) || a.id.localeCompare(b.id))
+    },
+  })
+}
+
+/** Occurrences stay individually addressable, including previously saved dates. */
+export function useSeriesDates(seriesId: string | null) {
+  return useQuery({
+    queryKey: ['series-dates', seriesId], enabled: Boolean(seriesId),
+    queryFn: async ({ signal }) => {
+      const dates: Pick<EventRow, 'id' | 'start_time' | 'end_time' | 'is_all_day' | 'is_cancelled'>[] = []
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await supabase.from('events').select('id,start_time,end_time,is_all_day,is_cancelled')
+          .eq('status', 'published').eq('series_id', seriesId!)
+          .gte('start_time', startOfChicagoDay(new Date()).toISOString())
+          .order('start_time').order('id').range(offset, offset + 499).abortSignal(signal)
+        if (error) throw error
+        dates.push(...data)
+        if (data.length < 500) return dates
+      }
     },
   })
 }
