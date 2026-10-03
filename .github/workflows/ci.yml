@@ -27,7 +27,15 @@ jobs:
       - run: npm test
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run build
+      - name: Build web
+        env:
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          VITE_GOOGLE_MAPS_MAP_ID: ${{ vars.VITE_GOOGLE_MAPS_MAP_ID }}
+        run: |
+          if [ -z "$VITE_GOOGLE_MAPS_API_KEY" ]; then
+            echo "::warning::Production Maps is disabled: configure the VITE_GOOGLE_MAPS_API_KEY repository secret."
+          fi
+          npm run build
       - name: Deploy production to Cloudflare
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         working-directory: apps/web

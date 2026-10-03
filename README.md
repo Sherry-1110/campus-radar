@@ -45,8 +45,13 @@ the default relies on source categorization, so mislabeled source events can sti
 
 Production setup is prepared but **not activated**:
 
-1. Configure a restricted browser Maps JavaScript key and map ID; disable demo mode.
-2. Review/apply `20260921190852_event_coordinates.sql` and regenerate database types.
+1. Add a production browser key as the GitHub Actions repository secret
+   `VITE_GOOGLE_MAPS_API_KEY`; restrict it to Maps JavaScript API and the website
+   `https://campus-radar.com/*`. A billing-enabled Google Cloud project is required.
+   Optionally set repository variable `VITE_GOOGLE_MAPS_MAP_ID`. CI injects these at
+   build time; changing Cloudflare runtime settings alone cannot update the browser bundle.
+   Local demo keys are not copied into production. Push or rerun CI after configuring the key.
+2. The coordinate migration and generated database types were applied on 2026-10-02.
 3. Configure a separate backend `GOOGLE_GEOCODING_API_KEY` for v4 and backend Supabase
    credentials. Never put backend credentials in `VITE_` variables.
 4. Preview with `npm run coordinates -w @campus-radar/ingestion -- --limit 50`;
