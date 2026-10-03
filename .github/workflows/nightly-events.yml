@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/ingestion/src/coordinates.ts'
+      - 'apps/ingestion/src/census.ts'
       - 'apps/web/src/lib/geocoding.ts'
       - '.github/workflows/nightly-events.yml'
   schedule:
@@ -97,4 +98,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           GOOGLE_GEOCODING_API_KEY: ${{ secrets.GOOGLE_GEOCODING_API_KEY || secrets.VITE_GOOGLE_MAPS_API_KEY }}
-        run: npm run coordinates -w @campus-radar/ingestion -- --apply --limit 500
+        run: npm run coordinates -w @campus-radar/ingestion -- --apply --limit 1000

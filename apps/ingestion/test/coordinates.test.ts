@@ -96,3 +96,42 @@ test('daily quota exhaustion stops without retrying until the next ingestion run
     assert.equal(attempts, 1)
   } finally { globalThis.fetch = originalFetch }
 })
+
+test('Census backfills without a Google key and continues after Google exhausts its quota', async () => {
+  const { createClient } = await import('@supabase/supabase-js')
+  const { syncCoordinates } = await import('../src/coordinates.ts')
+  const originalFetch = globalThis.fetch
+  const saved: Record<string, unknown>[] = []
+  let googleCalls = 0
+  globalThis.fetch = async input => {
+    const url = new URL(String(input))
+    if (url.hostname === 'example.supabase.co') {
+      return Response.json(url.pathname.endsWith('/events') ? [
+        { id: 'unknown', location: 'Unknown venue', region: 'chicago' },
+        { id: 'known', location: 'Venue, 1363 W Ohio St, Chicago, IL, 60642', region: 'chicago' },
+        { id: 'another-unknown', location: 'Another venue', region: 'chicago' },
+      ] : [])
+    }
+    if (url.hostname === 'geocode.googleapis.com') {
+      googleCalls++
+      return Response.json({ error: { details: [{ metadata: { quota_unit: '1/d/{project}' } }] } }, { status: 429 })
+    }
+    assert.equal(url.hostname, 'geocoding.geo.census.gov')
+    return Response.json({ result: { addressMatches: [{ matchedAddress: '1363 W OHIO ST, CHICAGO, IL, 60642', addressComponents: { state: 'IL', zip: '60642' }, coordinates: { x: -87.661893, y: 41.892436 } }] } })
+  }
+  const client = createClient('https://example.supabase.co', 'backend-test-key', { auth: { persistSession: false }, global: { fetch: async (input, init) => {
+    if (init?.method === 'POST') { saved.push(...JSON.parse(String(init.body))); return new Response(null, { status: 201 }) }
+    if (init?.method === 'DELETE') return new Response(null, { status: 204 })
+    return globalThis.fetch(input, init)
+  } } })
+  try {
+    const noKey = await syncCoordinates(client, { apply: true, limit: 10 })
+    assert.equal(noKey.located, 1); assert.equal(googleCalls, 0)
+    const withKey = await syncCoordinates(client, { apply: true, limit: 10, key: 'test-key' })
+    assert.equal(withKey.located, 1); assert.equal(googleCalls, 1)
+    assert.equal(withKey.warning, '')
+    assert.match(withKey.google_warning, /daily quota/)
+    assert.equal(saved[0].provider, 'census'); assert.equal(saved[0].place_id, null)
+    assert.equal(saved[0].matched_address, '1363 W OHIO ST, CHICAGO, IL, 60642')
+  } finally { globalThis.fetch = originalFetch }
+})

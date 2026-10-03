@@ -39,18 +39,24 @@ resolves locations after source syncs finish, even if a source partially fails.
 It also runs coordinate-only updates when the coordinate pipeline changes on main.
 Manual workflow runs support `coordinates_only=true` with `apply=true` for backfills.
 
-The ingestion job uses `GOOGLE_GEOCODING_API_KEY`, falling back to the existing
-`VITE_GOOGLE_MAPS_API_KEY` repository secret, with Geocoding API v4. It looks at all
-published events from today in Chicago onward, prioritizes the nearest dates, and
-reuses each precise venue result across occurrences. Existing fresh coordinates
+The ingestion job tries the free US Census geocoder first for full street addresses.
+It removes venue/room labels, accepts only unique matching Illinois addresses in our
+map region, and records the provider and matched address. Census coordinates are
+estimated along the street, not guaranteed building entrances. Venue-only or
+unmatched locations optionally fall back to Google Geocoding API v4, using
+`GOOGLE_GEOCODING_API_KEY` or the existing `VITE_GOOGLE_MAPS_API_KEY` secret.
+Census works without a Google key, and Google quota failures do not stop Census.
+The job looks at all published events from today in Chicago onward, prioritizes the nearest dates, and
+reuses each accepted location result across occurrences. Existing fresh coordinates
 are left untouched; new occurrences at known venues need no Google request.
 Results expire after 29 days and refresh within a day of expiry. Expired records
 are removed on every applying run, and changed event locations invalidate old pins.
 
-Each run permits up to 500 new address lookups. Quota or service errors preserve
+Each run permits up to 1,000 distinct address lookups. Census service errors preserve
 completed writes and fail the coordinate job visibly; later runs resume by reusing
-stored results. Ambiguous, broad, virtual, and out-of-region locations remain
-unpinned. Unresolved addresses may be retried on the next ingestion run.
+stored results. Google failures disable only that optional fallback for the run
+and appear separately in the report. Ambiguous, broad, virtual, and out-of-region
+locations remain unpinned. Unresolved addresses may be retried on the next ingestion run.
 Unmapped events remain available in the normal cards feed.
 
 For local development, set `VITE_GOOGLE_MAPS_API_KEY` in the ignored

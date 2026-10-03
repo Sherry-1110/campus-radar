@@ -4,9 +4,10 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { startOfChicagoDay } from '../../web/src/lib/dates.ts'
 import { geocodeAddress, type Coordinates } from '../../web/src/lib/geocoding.ts'
+import { geocodeCensus, type VenueCoordinates } from './census.ts'
 export { parseGeocoding } from '../../web/src/lib/geocoding.ts'
 
-type StoredCoordinates = Coordinates & { event_id: string; coordinate_location: string; address_query: string; expires_at: string }
+type StoredCoordinates = VenueCoordinates & { event_id: string; coordinate_location: string; address_query: string; expires_at: string }
 
 export async function geocodeVenue(address: string, key: string): Promise<Coordinates | null> {
   for (let attempt = 0; ; attempt++) {
@@ -20,9 +21,8 @@ export async function geocodeVenue(address: string, key: string): Promise<Coordi
 
 export async function syncCoordinates(client: SupabaseClient, { apply, limit, key, now = new Date() }: {
   apply: boolean; limit: number; key?: string; now?: Date
-}, locate = geocodeVenue) {
-  if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error('Limit must be 1–500 addresses')
-  if (apply && !key) throw new Error('Set backend GOOGLE_GEOCODING_API_KEY before --apply')
+}, locate?: (address: string, key: string) => Promise<Coordinates | VenueCoordinates | null>) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error('Limit must be 1–1000 addresses')
   if (apply) {
     const { error } = await client.from('event_coordinates').delete().lte('expires_at', now.toISOString())
     if (error) throw new Error(`Coordinate cleanup failed: ${error.code}`)
@@ -52,7 +52,20 @@ export async function syncCoordinates(client: SupabaseClient, { apply, limit, ke
     }
     if (data.length < 500) break
   }
-  const report = { mode: apply ? 'apply' : 'dry-run', events: events.length, address_requests: 0, located: 0, unresolved: 0, deferred: 0, warning: '' }
+  const report = { mode: apply ? 'apply' : 'dry-run', events: events.length, address_requests: 0, located: 0, unresolved: 0, deferred: 0, warning: '', google_warning: '' }
+  const resolve = locate ?? (async (address: string): Promise<VenueCoordinates | null> => {
+    const census = await geocodeCensus(address)
+    if (census) return census
+    if (!key || report.google_warning) return null
+    try {
+      const google = await geocodeVenue(address, key)
+      return google ? { ...google, provider: 'google', matched_address: null } : null
+    } catch (error) {
+      // An unavailable optional provider must not stop Census lookups for later venues.
+      report.google_warning = error instanceof Error ? error.message : 'Google geocoding unavailable'
+      return null
+    }
+  })
   const groups = new Map<string, typeof events>()
   for (const event of events) {
     if (!event.location || /^(online|virtual|no location|tba|tbd)$/i.test(event.location.trim())) { report.unresolved++; continue }
@@ -61,13 +74,13 @@ export async function syncCoordinates(client: SupabaseClient, { apply, limit, ke
   }
   for (const [address, rows] of groups) {
     const existing = byAddress.get(address)
-    let coordinates: Coordinates | null | undefined = existing
+    let coordinates: Coordinates | VenueCoordinates | null | undefined = existing
     const expires = existing?.expires_at ?? new Date(+now + 29 * 86400_000).toISOString()
     if (!coordinates) {
       if (report.warning || report.address_requests >= limit) { report.deferred += rows.length; continue }
       report.address_requests++
       if (!apply) continue
-      try { coordinates = await locate(address, key!) }
+      try { coordinates = await resolve(address, key!) }
       catch (error) {
         report.warning = error instanceof Error ? error.message : 'Coordinate lookup failed'
         report.deferred += rows.length
@@ -80,7 +93,9 @@ export async function syncCoordinates(client: SupabaseClient, { apply, limit, ke
         const saved = byEvent.get(row.id)
         return !saved || saved.coordinate_location !== row.location || saved.address_query !== address
       }).map(row => ({ event_id: row.id, coordinate_location: row.location!, address_query: address,
-        latitude: coordinates.latitude, longitude: coordinates.longitude, place_id: coordinates.place_id, expires_at: expires }))
+        latitude: coordinates.latitude, longitude: coordinates.longitude, place_id: coordinates.place_id, expires_at: expires,
+        provider: 'provider' in coordinates ? coordinates.provider : 'google',
+        matched_address: 'matched_address' in coordinates ? coordinates.matched_address : null }))
       for (let offset = 0; offset < missing.length; offset += 100) {
         const { error } = await client.from('event_coordinates').upsert(missing.slice(offset, offset + 100))
         if (error) throw new Error(`Coordinate write failed: ${error.code}`)
@@ -94,7 +109,7 @@ export async function syncCoordinates(client: SupabaseClient, { apply, limit, ke
 async function main() {
   const { values } = parseArgs({ options: {
     apply: { type: 'boolean', default: false }, purge: { type: 'boolean', default: false },
-    limit: { type: 'string', default: '500' },
+    limit: { type: 'string', default: '1000' },
   } })
   const url = process.env.SUPABASE_URL
   const secret = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY

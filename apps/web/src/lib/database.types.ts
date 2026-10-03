@@ -22,7 +22,9 @@ export type Database = {
           expires_at: string
           latitude: number
           longitude: number
-          place_id: string
+          matched_address: string | null
+          place_id: string | null
+          provider: string
         }
         Insert: {
           address_query: string
@@ -31,7 +33,9 @@ export type Database = {
           expires_at: string
           latitude: number
           longitude: number
-          place_id: string
+          matched_address?: string | null
+          place_id?: string | null
+          provider?: string
         }
         Update: {
           address_query?: string
@@ -40,7 +44,9 @@ export type Database = {
           expires_at?: string
           latitude?: number
           longitude?: number
-          place_id?: string
+          matched_address?: string | null
+          place_id?: string | null
+          provider?: string
         }
         Relationships: [
           {
