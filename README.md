@@ -29,39 +29,35 @@ The implementation branch adds entertainment-first date shortcuts, packed image 
 Google Maps with explicit **Search this area**, floating event details, a mobile bottom
 sheet, and browser-local Saved events. Ranking and final visual styling remain deferred.
 
-The hosted prototype uses the GitHub Actions secret `VITE_GOOGLE_MAPS_API_KEY`.
-CI enables `VITE_GOOGLE_MAPS_DEMO=true` and injects the key at build time. Push or
-rerun CI after changing the secret. The Google demo key supports Maps JavaScript
-API and **Geocoding API v4** without setting up billing. The hosted Worker serves
-`/api/demo/geocode`, deduplicating lookups in memory for one hour with a 50-address
-cap per Worker instance. No database coordinate writes or scheduled jobs run.
-Google's demo quota can be lower; successful locations remain visible when a
-lookup fails, with a quota/error message.
+The browser uses `VITE_GOOGLE_MAPS_API_KEY` only to render Google Maps. CI injects
+the GitHub Actions secret at build time; the existing demo key works for this
+prototype. Optionally set repository variable `VITE_GOOGLE_MAPS_MAP_ID`.
 
-For local development, set `VITE_GOOGLE_MAPS_API_KEY` and `VITE_GOOGLE_MAPS_DEMO=true`
-in `apps/web/.env.local`, then restart Vite. The ignored local file must not be
-committed. The development endpoint uses the same geocoding handler.
+Event pins come from the database's `event_coordinates` table. Opening the map or
+using **Search this area** never geocodes an address. The nightly ingestion workflow
+resolves locations after source syncs finish, even if a source partially fails.
+It also runs coordinate-only updates when the coordinate pipeline changes on main.
+Manual workflow runs support `coordinates_only=true` with `apply=true` for backfills.
 
-Only precise, unique US venue results in the Chicago region become pins. Unmapped
-events stay in the normal feed; a selected map area excludes them. Pins cover the
-matching located events independently of card pagination, but demo coverage is limited
-by the lookup cap. Academic events remain accessible through categories or search;
-the default relies on source categorization, so mislabeled source events can still appear.
+The ingestion job uses `GOOGLE_GEOCODING_API_KEY`, falling back to the existing
+`VITE_GOOGLE_MAPS_API_KEY` repository secret, with Geocoding API v4. It looks at all
+published events from today in Chicago onward, prioritizes the nearest dates, and
+reuses each precise venue result across occurrences. Existing fresh coordinates
+are left untouched; new occurrences at known venues need no Google request.
+Results expire after 29 days and refresh within a day of expiry. Expired records
+are removed on every applying run, and changed event locations invalidate old pins.
 
-Optional future setup for persistent coordinates (not required for the prototype):
+Each run permits up to 500 new address lookups. Quota or service errors preserve
+completed writes and fail the coordinate job visibly; later runs resume by reusing
+stored results. Ambiguous, broad, virtual, and out-of-region locations remain
+unpinned. Unresolved addresses may be retried on the next ingestion run.
+Unmapped events remain available in the normal cards feed.
 
-1. Switch off demo mode and configure an appropriate Google Cloud browser key for
-   Maps JavaScript API. Optionally set repository variable `VITE_GOOGLE_MAPS_MAP_ID`.
-   CI injects these at build time; runtime settings cannot update the browser bundle.
-2. The coordinate migration and generated database types were applied on 2026-10-02.
-3. Configure a separate backend `GOOGLE_GEOCODING_API_KEY` for v4 and backend Supabase
-   credentials. Never put backend credentials in `VITE_` variables.
-4. Preview with `npm run coordinates -w @campus-radar/ingestion -- --limit 50`;
-   an explicitly authorized `--apply` populates coordinates. `--purge` removes expired
-   entries. The cache expires after 29 days; public reads hide expired entries and
-   changed venue addresses invalidate them. Arrange approved refresh/physical cleanup
-   before enabling persistent geocoding. No recurring workflow is configured here.
-5. Keep Google's map attribution visible and maintain applicable privacy and terms pages.
+For local development, set `VITE_GOOGLE_MAPS_API_KEY` in the ignored
+`apps/web/.env.local`. Local and hosted maps both read the same stored coordinates.
+Backend Supabase credentials belong only in ingestion, never `VITE_` variables.
+To preview coordinate work use `npm run coordinates -w @campus-radar/ingestion`;
+`--apply` saves results, and `--purge` removes expired results only.
 
 See [Google's demo-key documentation](https://developers.google.com/maps/demo-key) and
 [Geocoding v4 setup](https://developers.google.com/maps/documentation/geocoding/start-v4).

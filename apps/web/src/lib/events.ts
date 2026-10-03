@@ -2,8 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import type { Database } from './database.types'
 import { matchesNothing, type EventFilters } from './filters'
 import { queryEvents } from './eventQuery'
-import { withinBounds, type MapBounds } from './geo'
-import { demoMaps, locateDemoEvents } from './demoCoordinates'
+import type { MapBounds } from './geo'
 import { supabase } from './supabase'
 import { startOfChicagoDay } from './dates'
 import { nextPage, pageRange } from './pagination'
@@ -40,13 +39,7 @@ export function useEvents(filters: EventFilters, bounds: MapBounds | null = null
       // An empty selection in any filter can match nothing; skip the request.
       if (matchesNothing(filters)) return { items: [] as EventListItem[], total: 0, page: 1 }
 
-      let ids: string[] | undefined
-      if (demoMaps && bounds) {
-        const all = await fetchAllEvents(filters, signal)
-        const { located } = await locateDemoEvents(all)
-        ids = located.filter(event => withinBounds(event.event_coordinates, bounds)).map(e => e.id)
-      }
-      const query = queryEvents(supabase, filters, { bounds: demoMaps ? null : bounds, ids })
+      const query = queryEvents(supabase, filters, { bounds })
         .abortSignal(signal).returns<Array<{ event: EventListItem }>>()
 
       const { data, error, count } = await query.range(...pageRange(page))
@@ -90,34 +83,18 @@ export function feeLabel(event: Pick<EventRow, 'is_free' | 'fee_text'>): string 
 
 export type MapEvent = { id: string; title: string; event_coordinates: { latitude: number; longitude: number } }
 
-async function fetchAllEvents(filters: EventFilters, signal: AbortSignal, options: Parameters<typeof queryEvents>[2] = { group: false }) {
-  const items: EventListItem[] = []
-  for (let offset = 0; ; offset += 500) {
-    const { data, error } = await queryEvents(supabase, filters, options).range(offset, offset + 499).abortSignal(signal).returns<Array<{ event: EventListItem }>>()
-    if (error) throw error
-    items.push(...data.map(row => row.event))
-    if (data.length < 500) return items
-  }
-}
-
 export function useMapEvents(filters: EventFilters, bounds: MapBounds | null, enabled: boolean) {
   return useQuery({
     queryKey: ['map-events', filters, bounds], enabled, retry: false, staleTime: 5 * 60_000,
     queryFn: async ({ signal }) => {
-      if (matchesNothing(filters)) return { located: [] as MapEvent[], deferred: 0, warning: '' }
-      if (demoMaps) {
-        const result = await locateDemoEvents(await fetchAllEvents(filters, signal))
-        const locations = new Map(result.located.filter(event => withinBounds(event.event_coordinates, bounds)).map(e => [e.id, e]))
-        const grouped = await fetchAllEvents(filters, signal, { ids: [...locations.keys()], group: true })
-        return { ...result, located: grouped.map(e => locations.get(e.id)!) }
-      }
+      if (matchesNothing(filters)) return { located: [] as MapEvent[] }
       const located: MapEvent[] = []
       for (let offset = 0; ; offset += 500) {
         const { data, error } = await queryEvents(supabase, filters, { bounds, pins: true })
           .range(offset, offset + 499).abortSignal(signal).returns<Array<{ event: MapEvent }>>()
         if (error) throw error
         located.push(...data.map(row => row.event))
-        if (data.length < 500) return { located, deferred: 0, warning: '' }
+        if (data.length < 500) return { located }
       }
     },
   })

@@ -94,7 +94,7 @@ export function HomePage() {
       </section>
       <aside className={`${showMap ? '' : 'hidden'} map-column`}>
         {mapActivated && <EventMap events={mapQuery.data?.located ?? []} selectedId={selection.selectedId} onSelect={selection.open}
-          bounds={bounds} onSearchArea={searchArea} loading={mapQuery.isFetching} error={mapQuery.error?.message || mapQuery.data?.warning || false} deferred={mapQuery.data?.deferred} />}
+          bounds={bounds} onSearchArea={searchArea} loading={mapQuery.isFetching} error={Boolean(mapQuery.error)} />}
       </aside>
     </div>
     {selection.selectedId && <EventDetailPanel id={selection.selectedId} onClose={selection.close} returnFocus={selection.returnFocus} />}

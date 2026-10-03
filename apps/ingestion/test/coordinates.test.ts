@@ -82,3 +82,17 @@ test('transient geocoding throttling retries instead of abandoning the backfill'
     assert.equal(attempts, 2)
   } finally { globalThis.fetch = originalFetch }
 })
+
+test('daily quota exhaustion stops without retrying until the next ingestion run', async () => {
+  const { geocodeVenue } = await import('../src/coordinates.ts')
+  const originalFetch = globalThis.fetch
+  let attempts = 0
+  globalThis.fetch = async () => {
+    attempts++
+    return Response.json({ error: { details: [{ metadata: { quota_unit: '1/d/{project}' } }] } }, { status: 429 })
+  }
+  try {
+    await assert.rejects(geocodeVenue('Venue, Chicago, IL', 'test-key'), /daily quota reached/)
+    assert.equal(attempts, 1)
+  } finally { globalThis.fetch = originalFetch }
+})

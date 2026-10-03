@@ -4,10 +4,10 @@ import type { MapEvent } from '@/lib/events'
 import { INITIAL_BOUNDS, parseBounds, writeBounds, type MapBounds } from '@/lib/geo'
 import { loadGoogleMaps } from '@/lib/googleMaps'
 
-export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, loading, error, deferred = 0 }: {
+export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, loading, error }: {
   events: MapEvent[]; selectedId: string | null; onSelect: (id: string, trigger?: HTMLElement) => void;
   bounds: MapBounds | null; onSearchArea: (bounds: MapBounds) => void;
-  loading: boolean; error: boolean | string; deferred?: number;
+  loading: boolean; error: boolean | string;
 }) {
   const canvas = useRef<HTMLDivElement>(null)
   const mapRegion = useRef<HTMLElement>(null)
@@ -101,7 +101,7 @@ export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, l
       {visibleGroup.map(event => <button type="button" key={event.id} className="block min-h-11 w-full rounded-lg px-2 py-3 text-left text-sm hover:bg-brand-50" onClick={click => onSelect(event.id, click.currentTarget)}>{event.title}</button>)}
     </div>}
     {map && <p role="status" className="absolute inset-x-3 bottom-9 rounded-lg bg-white/95 px-3 py-2 text-xs text-ink-muted">
-      {error ? `${events.length} mapped events. ${typeof error === 'string' ? error : 'Some event locations could not load.'} Clear the area filter to browse all cards.` : loading ? 'Finding event locations…' : `${events.length} mapped events${deferred ? ` · ${deferred} beyond the prototype lookup limit` : ' · Some venues may not be mapped'}`}
+      {error ? `${events.length} mapped events. ${typeof error === 'string' ? error : 'Some event locations could not load.'} Clear the area filter to browse all cards.` : loading ? 'Loading event locations…' : `${events.length} mapped events · Some venues may not be mapped`}
     </p>}
   </section>
 }

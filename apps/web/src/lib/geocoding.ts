@@ -29,6 +29,12 @@ export async function geocodeAddress(address: string, key: string): Promise<Coor
       signal: AbortSignal.timeout(15000), redirect: 'manual',
     })
   } catch (error) { throw new Error(error instanceof DOMException && error.name === 'TimeoutError' ? 'Google Geocoding timed out' : 'Google Geocoding could not connect') }
+  if (response.status === 429) {
+    const payload = await response.json().catch(() => null) as { error?: { details?: Array<{ metadata?: { quota_unit?: string } }> } } | null
+    if (payload?.error?.details?.some(detail => detail.metadata?.quota_unit?.startsWith('1/d/'))) {
+      throw new Error('Google Geocoding daily quota reached; remaining locations deferred to the next ingestion run')
+    }
+  }
   if (!response.ok) throw new Error(`Google Geocoding HTTP ${response.status}`)
   return parseGeocoding(await response.json() as GeocodingResponse)
 }

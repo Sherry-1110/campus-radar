@@ -31,7 +31,6 @@ jobs:
         env:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           VITE_GOOGLE_MAPS_MAP_ID: ${{ vars.VITE_GOOGLE_MAPS_MAP_ID }}
-          VITE_GOOGLE_MAPS_DEMO: 'true'
         run: |
           if [ -z "$VITE_GOOGLE_MAPS_API_KEY" ]; then
             echo "::warning::Prototype Maps is disabled: configure the VITE_GOOGLE_MAPS_API_KEY repository secret."
@@ -77,7 +76,6 @@ jobs:
           }
           assert.ok(verified, 'Live site did not serve the deployed build within the retry window')
           const geocoding = await fetch('https://campus-radar.com/api/demo/geocode', { signal: AbortSignal.timeout(30000) })
-          assert.equal(geocoding.status, 400, 'Hosted geocoding route must reject a missing address')
-          assert.deepEqual(await geocoding.json(), { error: 'Invalid address' })
+          assert.equal(geocoding.status, 404, 'Visitor-triggered geocoding must remain disabled')
           JS
           echo "Deployed commit $GITHUB_SHA to https://campus-radar.com" >> "$GITHUB_STEP_SUMMARY"
