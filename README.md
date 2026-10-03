@@ -29,13 +29,18 @@ The implementation branch adds entertainment-first date shortcuts, packed image 
 Google Maps with explicit **Search this area**, floating event details, a mobile bottom
 sheet, and browser-local Saved events. Ranking and final visual styling remain deferred.
 
-For a local prototype, set `VITE_GOOGLE_MAPS_API_KEY` and `VITE_GOOGLE_MAPS_DEMO=true`
-in `apps/web/.env.local`, then restart Vite. The ignored local file must not be committed.
-The demo uses Maps JavaScript API and **Geocoding API v4**, through a development-only
-Vite endpoint. It keeps results in memory, deduplicates addresses, and caps each server
-session at 50 distinct addresses. No hosted coordinate writes or scheduled jobs run.
-Google's own demo quota can be lower: successful locations remain visible when a lookup
-fails, with a quota/error message. Restart Vite after quota availability returns.
+The hosted prototype uses the GitHub Actions secret `VITE_GOOGLE_MAPS_API_KEY`.
+CI enables `VITE_GOOGLE_MAPS_DEMO=true` and injects the key at build time. Push or
+rerun CI after changing the secret. The Google demo key supports Maps JavaScript
+API and **Geocoding API v4** without setting up billing. The hosted Worker serves
+`/api/demo/geocode`, deduplicating lookups in memory for one hour with a 50-address
+cap per Worker instance. No database coordinate writes or scheduled jobs run.
+Google's demo quota can be lower; successful locations remain visible when a
+lookup fails, with a quota/error message.
+
+For local development, set `VITE_GOOGLE_MAPS_API_KEY` and `VITE_GOOGLE_MAPS_DEMO=true`
+in `apps/web/.env.local`, then restart Vite. The ignored local file must not be
+committed. The development endpoint uses the same geocoding handler.
 
 Only precise, unique US venue results in the Chicago region become pins. Unmapped
 events stay in the normal feed; a selected map area excludes them. Pins cover the
@@ -43,14 +48,11 @@ matching located events independently of card pagination, but demo coverage is l
 by the lookup cap. Academic events remain accessible through categories or search;
 the default relies on source categorization, so mislabeled source events can still appear.
 
-Production setup is prepared but **not activated**:
+Optional future setup for persistent coordinates (not required for the prototype):
 
-1. Add a production browser key as the GitHub Actions repository secret
-   `VITE_GOOGLE_MAPS_API_KEY`; restrict it to Maps JavaScript API and the website
-   `https://campus-radar.com/*`. A billing-enabled Google Cloud project is required.
-   Optionally set repository variable `VITE_GOOGLE_MAPS_MAP_ID`. CI injects these at
-   build time; changing Cloudflare runtime settings alone cannot update the browser bundle.
-   Local demo keys are not copied into production. Push or rerun CI after configuring the key.
+1. Switch off demo mode and configure an appropriate Google Cloud browser key for
+   Maps JavaScript API. Optionally set repository variable `VITE_GOOGLE_MAPS_MAP_ID`.
+   CI injects these at build time; runtime settings cannot update the browser bundle.
 2. The coordinate migration and generated database types were applied on 2026-10-02.
 3. Configure a separate backend `GOOGLE_GEOCODING_API_KEY` for v4 and backend Supabase
    credentials. Never put backend credentials in `VITE_` variables.
@@ -59,8 +61,7 @@ Production setup is prepared but **not activated**:
    entries. The cache expires after 29 days; public reads hide expired entries and
    changed venue addresses invalidate them. Arrange approved refresh/physical cleanup
    before enabling persistent geocoding. No recurring workflow is configured here.
-5. Complete the applicable Google Maps attribution, privacy, and terms requirements
-   before publishing. The prototype keeps Google's map attribution visible.
+5. Keep Google's map attribution visible and maintain applicable privacy and terms pages.
 
 See [Google's demo-key documentation](https://developers.google.com/maps/demo-key) and
 [Geocoding v4 setup](https://developers.google.com/maps/documentation/geocoding/start-v4).

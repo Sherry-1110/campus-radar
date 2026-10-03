@@ -1,15 +1,15 @@
 import type { Coordinates } from './geocoding'
 import type { EventListItem } from './events'
 
-export const demoMaps = import.meta.env?.DEV && import.meta.env.VITE_GOOGLE_MAPS_DEMO === 'true'
+export const demoMaps = import.meta.env?.VITE_GOOGLE_MAPS_DEMO === 'true'
 const cache = new Map<string, Promise<Coordinates | null>>()
 async function fetchDemoAddress(address: string): Promise<Coordinates | null> {
-  const response = await fetch(`/__demo/geocode?${new URLSearchParams({ address })}`)
+  const response = await fetch(`/api/demo/geocode?${new URLSearchParams({ address })}`)
   if (!response.ok) throw new Error(response.status === 429 ? 'Google demo geocoding quota reached. Try again later.' : `Location lookup unavailable (${response.status}). Try again later.`)
   return response.json()
 }
 
-/** Local prototype only: session-memory results, no production writes or background jobs. */
+/** Local and hosted prototype: session-memory results, no database writes or background jobs. */
 export async function locateDemoEvents(events: EventListItem[]) {
   const located: Array<{ id: string; title: string; event_coordinates: { latitude: number; longitude: number } }> = []
   let deferred = 0
