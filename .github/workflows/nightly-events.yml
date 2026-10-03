@@ -6,6 +6,10 @@ on:
     - cron: '17 8 * * *'
   workflow_dispatch:
     inputs:
+      coordinates_only:
+        description: 'Refresh stored map coordinates without refetching event sources'
+        type: boolean
+        default: false
       apply:
         description: 'Write events to Supabase (false previews source coverage only)'
         type: boolean
@@ -26,6 +30,7 @@ concurrency:
 jobs:
   sync:
     name: Sync ${{ matrix.source }}
+    if: ${{ !inputs.coordinates_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -65,3 +70,25 @@ jobs:
           path: apps/ingestion/sync-report.json
           if-no-files-found: ignore
           retention-days: 14
+
+  coordinates:
+    name: Resolve event coordinates
+    needs: sync
+    # Run even after a partial source failure; existing events still need fresh pins.
+    if: ${{ always() && !cancelled() && (github.event_name == 'schedule' || inputs.apply) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Reuse, refresh and store venue coordinates
+        env:
+          SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GOOGLE_GEOCODING_API_KEY: ${{ secrets.GOOGLE_GEOCODING_API_KEY || secrets.VITE_GOOGLE_MAPS_API_KEY }}
+        run: npm run coordinates -w @campus-radar/ingestion -- --apply --limit 500
