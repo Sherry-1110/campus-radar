@@ -68,3 +68,17 @@ test('ingestion saves shared venue coordinates, reuses them on reruns, and refre
   assert.equal(limited.warning, 'Google Geocoding HTTP 429')
   assert.equal(limited.deferred, 1)
 })
+
+test('transient geocoding throttling retries instead of abandoning the backfill', async () => {
+  const { geocodeVenue } = await import('../src/coordinates.ts')
+  const originalFetch = globalThis.fetch
+  let attempts = 0
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init?.redirect, 'manual')
+    return ++attempts === 1 ? new Response('', { status: 429 }) : Response.json({ results: [result] })
+  }
+  try {
+    assert.equal((await geocodeVenue('Venue, Chicago, IL', 'test-key'))?.place_id, 'test-place')
+    assert.equal(attempts, 2)
+  } finally { globalThis.fetch = originalFetch }
+})

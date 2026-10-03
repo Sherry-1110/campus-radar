@@ -1,5 +1,6 @@
 import { appendFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
+import { setTimeout as delay } from 'node:timers/promises'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { startOfChicagoDay } from '../../web/src/lib/dates.ts'
 import { geocodeAddress, type Coordinates } from '../../web/src/lib/geocoding.ts'
@@ -7,9 +8,19 @@ export { parseGeocoding } from '../../web/src/lib/geocoding.ts'
 
 type StoredCoordinates = Coordinates & { event_id: string; coordinate_location: string; address_query: string; expires_at: string }
 
+export async function geocodeVenue(address: string, key: string): Promise<Coordinates | null> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await geocodeAddress(address, key) }
+    catch (error) {
+      if (attempt >= 3 || !(error instanceof Error) || !/^Google Geocoding HTTP (429|50[0234])$/.test(error.message)) throw error
+      await delay(1000 * 2 ** attempt)
+    }
+  }
+}
+
 export async function syncCoordinates(client: SupabaseClient, { apply, limit, key, now = new Date() }: {
   apply: boolean; limit: number; key?: string; now?: Date
-}, locate = geocodeAddress) {
+}, locate = geocodeVenue) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error('Limit must be 1–500 addresses')
   if (apply && !key) throw new Error('Set backend GOOGLE_GEOCODING_API_KEY before --apply')
   if (apply) {
@@ -51,7 +62,7 @@ export async function syncCoordinates(client: SupabaseClient, { apply, limit, ke
   for (const [address, rows] of groups) {
     const existing = byAddress.get(address)
     let coordinates: Coordinates | null | undefined = existing
-    let expires = existing?.expires_at ?? new Date(+now + 29 * 86400_000).toISOString()
+    const expires = existing?.expires_at ?? new Date(+now + 29 * 86400_000).toISOString()
     if (!coordinates) {
       if (report.warning || report.address_requests >= limit) { report.deferred += rows.length; continue }
       report.address_requests++
