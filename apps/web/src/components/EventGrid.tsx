@@ -1,8 +1,21 @@
+import { useLayoutEffect, useRef } from 'react'
 import type { EventListItem } from '@/lib/events'
 import { EventCard } from './EventCard'
 
 export function EventGrid({ items, onSelect, selectedId }: { items: EventListItem[]; onSelect?: (id: string, trigger: HTMLElement) => void; selectedId?: string | null }) {
-  return <ul className="event-grid">
-    {items.map(event => <li key={event.id} className="mb-5 break-inside-avoid"><EventCard event={event} onSelect={onSelect} selected={selectedId === event.id} /></li>)}
+  const grid = useRef<HTMLUListElement>(null)
+  useLayoutEffect(() => {
+    if (!grid.current) return
+    // Small grid tracks keep DOM/date order and avoid CSS columns redistributing old cards on append.
+    const size = (item: HTMLElement) => { item.style.gridRowEnd = `span ${Math.ceil((item.getBoundingClientRect().height + 20) / 8)}` }
+    const observer = new ResizeObserver(entries => entries.forEach(entry => size(entry.target as HTMLElement)))
+    for (const item of grid.current.children) {
+      size(item as HTMLElement)
+      observer.observe(item)
+    }
+    return () => observer.disconnect()
+  }, [items])
+  return <ul ref={grid} className="event-grid event-feed">
+    {items.map(event => <li key={event.id}><EventCard event={event} onSelect={onSelect} selected={selectedId === event.id} /></li>)}
   </ul>
 }

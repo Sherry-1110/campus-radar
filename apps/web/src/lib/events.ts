@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import type { Database } from './database.types'
 import { matchesNothing, type EventFilters } from './filters'
 import { queryEvents } from './eventQuery'
@@ -6,7 +6,7 @@ import { withinBounds, type MapBounds } from './geo'
 import { demoMaps, locateDemoEvents } from './demoCoordinates'
 import { supabase } from './supabase'
 import { startOfChicagoDay } from './dates'
-import { PAGE_SIZE, pageRange } from './pagination'
+import { nextPage, pageRange } from './pagination'
 
 export type EventRow = Database['public']['Tables']['events']['Row']
 export type EventListItem = Pick<
@@ -31,10 +31,12 @@ export type EventListItem = Pick<
 const LIST_COLUMNS =
   'id,series_id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,region,neighborhood,is_cancelled,is_all_day'
 
-export function useEvents(filters: EventFilters, page: number, bounds: MapBounds | null = null) {
-  return useQuery({
-    queryKey: ['events', filters, page, bounds],
-    queryFn: async ({ signal }) => {
+export function useEvents(filters: EventFilters, bounds: MapBounds | null = null) {
+  return useInfiniteQuery({
+    queryKey: ['event-feed', filters, bounds],
+    initialPageParam: 1,
+    getNextPageParam: nextPage,
+    queryFn: async ({ signal, pageParam: page }) => {
       // An empty selection in any filter can match nothing; skip the request.
       if (matchesNothing(filters)) return { items: [] as EventListItem[], total: 0, page: 1 }
 
@@ -47,20 +49,15 @@ export function useEvents(filters: EventFilters, page: number, bounds: MapBounds
       const query = queryEvents(supabase, filters, { bounds: demoMaps ? null : bounds, ids })
         .abortSignal(signal).returns<Array<{ event: EventListItem }>>()
 
-      let result = await query.range(...pageRange(page))
-      // Saved links can outlive events. Recover an out-of-range page rather than showing an error.
-      const lastPage = Math.max(1, Math.ceil((result.count ?? 0) / PAGE_SIZE))
-      const currentPage = result.error?.code === 'PGRST103' ? 1 : Math.min(page, lastPage)
-      if (currentPage !== page && (!result.error || result.error.code === 'PGRST103')) {
-        result = await query.range(...pageRange(currentPage))
-      }
-      const { data, error, count } = result
+      const { data, error, count } = await query.range(...pageRange(page))
+      // Imports/removals can shrink a feed while it is open. End it without losing earlier cards.
+      if (error?.code === 'PGRST103') return { items: [] as EventListItem[], total: count ?? 0, page }
 
       if (error) throw error
       return {
         items: data.map(row => row.event),
         total: count ?? 0,
-        page: currentPage,
+        page,
       }
     },
   })
