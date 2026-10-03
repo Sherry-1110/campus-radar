@@ -26,7 +26,7 @@ export async function geocodeAddress(address: string, key: string): Promise<Coor
   try {
     response = await fetch(`https://geocode.googleapis.com/v4/geocode/address/${encodeURIComponent(address)}?${params}`, {
       headers: { 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'results.placeId,results.location,results.types,results.granularity,results.postalAddress.regionCode' },
-      signal: AbortSignal.timeout(15000), redirect: 'error',
+      signal: AbortSignal.timeout(15000), redirect: 'manual',
     })
   } catch (error) { throw new Error(error instanceof DOMException && error.name === 'TimeoutError' ? 'Google Geocoding timed out' : 'Google Geocoding could not connect') }
   if (!response.ok) throw new Error(`Google Geocoding HTTP ${response.status}`)

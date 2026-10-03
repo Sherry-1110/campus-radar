@@ -11,6 +11,7 @@ test('hosted demo validates requests, shares lookups, handles quota and expires 
     calls++
     assert.match(String(url), /^https:\/\/geocode.googleapis.com\/v4\/geocode\/address\//)
     assert.equal(new Headers(init?.headers).get('X-Goog-Api-Key'), 'test-demo-key')
+    assert.equal(init?.redirect, 'manual', 'Cloudflare supports manual redirects; non-success responses are rejected')
     return quota ? new Response('', { status: 429 }) : Response.json({ results: [{
       placeId: 'venue', types: ['premise'], granularity: 'ROOFTOP',
       postalAddress: { regionCode: 'US' }, location: { latitude: 42.05, longitude: -87.67 },
