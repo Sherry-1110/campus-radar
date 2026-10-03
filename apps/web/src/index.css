@@ -68,6 +68,10 @@
 .event-grid { columns: 16rem; column-gap: 1rem; }
 @media (max-width: 639px) {
   .event-grid { columns: 2; column-gap: .625rem; }
+  .event-grid article h2 { font-size: .8125rem; }
+  .event-grid article p { font-size: .6875rem; }
+  .event-grid article > div > :is(a, button) { font-size: .75rem; }
+  .event-grid article > div > span { font-size: .6875rem; }
 }
 .event-map { height: max(420px, calc(100dvh - 280px)); }
 .map-control { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; padding: .65rem .85rem; background: white; border-radius: 999px; box-shadow: var(--shadow-card); font-size: .8rem; font-weight: 700; color: var(--color-ink); }
