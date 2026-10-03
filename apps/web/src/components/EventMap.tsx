@@ -100,8 +100,8 @@ export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, l
       <div className="flex items-center justify-between"><p className="font-bold">At this venue</p><button type="button" aria-label="Close venue events" className="size-11" onClick={() => setGroup([])}><X className="mx-auto size-4" /></button></div>
       {visibleGroup.map(event => <button type="button" key={event.id} className="block min-h-11 w-full rounded-lg px-2 py-3 text-left text-sm hover:bg-brand-50" onClick={click => onSelect(event.id, click.currentTarget)}>{event.title}</button>)}
     </div>}
-    {map && <p role="status" className="absolute inset-x-3 bottom-9 rounded-lg bg-white/95 px-3 py-2 text-xs text-ink-muted">
-      {error ? `${events.length} mapped events. ${typeof error === 'string' ? error : 'Some event locations could not load.'} Clear the area filter to browse all cards.` : loading ? 'Loading event locations…' : `${events.length} mapped events · Some venues may not be mapped`}
+    {map && (loading || error) && <p role="status" className="absolute inset-x-3 bottom-9 rounded-lg bg-white/95 px-3 py-2 text-xs text-ink-muted">
+      {error ? `${typeof error === 'string' ? error : 'Some event locations could not load.'} Clear the area filter to browse all cards.` : 'Loading event locations…'}
     </p>}
   </section>
 }
