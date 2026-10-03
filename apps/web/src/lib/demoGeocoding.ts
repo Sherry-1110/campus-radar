@@ -19,6 +19,7 @@ export async function demoGeocode(request: Request, key: string | undefined): Pr
     return reply(await entry.result)
   } catch (error) {
     if (cache.get(address) === entry) cache.delete(address)
+    console.warn('Demo geocoding failed:', error instanceof Error ? error.message : 'Unknown failure')
     const quota = error instanceof Error && error.message === 'Google Geocoding HTTP 429'
     return reply({ error: quota ? 'Google demo geocoding quota reached' : 'Location lookup unavailable' }, quota ? 429 : 502)
   }
