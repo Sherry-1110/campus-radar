@@ -14,7 +14,7 @@ export function EventCard({ event, onSelect }: { event: EventListItem; onSelect?
   const source = eventPageUrl(event)
   const price = cardFee(event)
   const range = (event.matching_dates ?? 1) > 1 && event.last_start_time ? formatDateRange(event.start_time, event.last_start_time, 'short') : null
-  return <article className="group relative overflow-hidden rounded-none border sm:rounded-2xl border-line bg-surface shadow-card motion-safe:transition motion-safe:duration-200 hover:border-brand-200 hover:shadow-card-hover motion-safe:hover:-translate-y-0.5">
+  return <article className="group relative overflow-hidden rounded-lg border sm:rounded-2xl border-line bg-surface shadow-card motion-safe:transition motion-safe:duration-200 hover:border-brand-200 hover:shadow-card-hover motion-safe:hover:-translate-y-0.5">
     <Link to={`/events/${event.id}`} aria-label={`View ${event.title}`} className="block"
       onClick={e => { if (onSelect && isMobileViewport() && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); onSelect(event.id, e.currentTarget) } }}>
       <Poster key={event.cover_image_url} src={event.cover_image_url} title={event.title} category={event.category} natural />
@@ -39,7 +39,7 @@ export function EventCard({ event, onSelect }: { event: EventListItem; onSelect?
 }
 
 export function EventCardSkeleton() {
-  return <div className="overflow-hidden rounded-none border border-line bg-surface motion-safe:animate-pulse sm:rounded-2xl" aria-hidden="true">
+  return <div className="overflow-hidden rounded-lg border border-line bg-surface motion-safe:animate-pulse sm:rounded-2xl" aria-hidden="true">
     <div className="aspect-[4/3] bg-brand-100" /><div className="space-y-3 p-3">
       <div className="h-5 rounded bg-brand-100" /><div className="h-4 w-3/4 rounded bg-brand-50" /><div className="h-4 w-1/2 rounded bg-brand-50" />
     </div>
