@@ -67,7 +67,7 @@ export function EventDetail({ event }: { event: EventRow }) {
   }
 
   return (
-    <article className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-12">
+    <article className="grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-12">
       <div className="lg:sticky lg:top-6 lg:self-start">
         <div className="overflow-hidden rounded-3xl border border-line bg-brand-100 shadow-card">
           <div className="relative mx-auto w-full">
@@ -77,7 +77,7 @@ export function EventDetail({ event }: { event: EventRow }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-6">
+      <div className="flex min-w-0 flex-col gap-6 [overflow-wrap:anywhere]">
         {event.is_cancelled && (
           <p role="status" className="rounded-xl bg-red-100 p-4 font-semibold text-red-800">
             This event has been canceled. Check the organizer’s source page for updates.
