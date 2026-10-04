@@ -109,3 +109,73 @@ begin
 end;
 $$;
 rollback;
+
+-- Test: events get up to 3 categories from the source category plus title keywords,
+-- one per site group, and category filtering matches any of them.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+  n integer;
+begin
+  insert into public.events (school_id, title, start_time, category, status)
+    values (school, 'Jazz Wine Night', '2099-03-01T20:00:00Z', 'music', 'published') returning categories into cats;
+  assert cats = array['music', 'food']::public.event_category[], 'Source category first, then title matches: ' || cats::text;
+
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Comedy Show and Yoga Party Lecture', '2099-03-02T20:00:00Z', 'other') returning categories into cats;
+  assert cardinality(cats) = 3, 'At most 3 categories: ' || cats::text;
+
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Open Mic', '2099-03-03T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['music']::public.event_category[], 'Music and arts share a group, so only one is kept: ' || cats::text;
+
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Mystery Item', '2099-03-04T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['other']::public.event_category[], 'Unmatched events stay other';
+
+  assert (select category from public.events where title = 'Jazz Wine Night') = 'music', 'category stays the first entry';
+  select count(*) into n from public.browse_events(p_categories => array['food']::public.event_category[],
+    p_ranges => '[{"from":"2099-03-01Z","to":"2099-03-02Z"}]');
+  assert n = 1, 'Filtering by a secondary category must match';
+end;
+$$;
+rollback;
+
+-- Test: a talk about a topic does not get the topic's category.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Colloquium: The Childcare Market and Stress', '2099-04-01T20:00:00Z', 'academic') returning categories into cats;
+  assert cats = array['academic']::public.event_category[], 'Talk topics must not add categories: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Industrial Organization Lunch', '2099-04-02T20:00:00Z', 'academic') returning categories into cats;
+  assert cats = array['academic', 'food']::public.event_category[], 'Meals can still be added: ' || cats::text;
+end;
+$$;
+rollback;
+
+-- Test: exhibitions have their own category; a talk about one does not.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Gallery Opening: Paper Worlds', '2099-05-01T20:00:00Z', 'arts') returning categories into cats;
+  assert cats = array['arts', 'exhibition']::public.event_category[], 'Exhibition added after the source category: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Museum Exhibit Preview', '2099-05-02T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['exhibition']::public.event_category[], 'Primary exhibition: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Lecture on Museum Collections', '2099-05-03T20:00:00Z', 'academic') returning categories into cats;
+  assert cats = array['academic']::public.event_category[], 'Talk topics add nothing: ' || cats::text;
+end;
+$$;
+rollback;
