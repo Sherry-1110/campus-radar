@@ -21,7 +21,7 @@ const QUICK_DATES: { value: TimeValue; label: string }[] = [
   { value: 'weekend', label: 'This weekend' },
 ]
 
-const toggleBox = 'flex min-h-11 whitespace-nowrap cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-bold shadow-card motion-safe:transition'
+const toggleBox = 'flex min-h-11 cursor-pointer items-center max-sm:grow max-sm:justify-center gap-1.5 whitespace-nowrap rounded-xl border px-2 text-[13px] font-bold shadow-card motion-safe:transition sm:gap-2 sm:px-3 sm:text-sm'
 const toggleState = (on: boolean) =>
   on ? 'border-brand-700 bg-brand-50 text-brand-800' : 'border-line bg-surface text-ink hover:border-brand-300'
 
@@ -41,11 +41,14 @@ export function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
     filters.time.length === 1 && filters.time[0] === 'custom' && filters.date
       ? customDateLabel(filters.date)
       : undefined
+  const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every(v => b.includes(v))
+  const timeChanged = !sameSet(filters.time, DEFAULT_FILTERS.time)
+  const categoryChanged = !sameSet(filters.categories, DEFAULT_FILTERS.categories)
   const onCampusOnly = filters.scopes.length === 1 && filters.scopes[0] === 'campus'
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex flex-1 flex-wrap items-center gap-3">
+      <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:flex-1 sm:gap-3">
         {QUICK_DATES.map(({ value, label }) => {
           const on = filters.time.length === 1 && filters.time[0] === value
           return (
@@ -61,14 +64,15 @@ export function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
             </button>
           )
         })}
-        <div className="w-[calc(50%-0.375rem)] sm:w-44">
+        <div className="max-sm:grow sm:w-44">
           <FilterDropdown
             label="Time"
             options={TIME_OPTIONS}
             selected={filters.time}
             onChange={(time) => onChange({ time })}
             summary={timeSummary}
-            panelClass="left-0"
+            labelOnlyOnMobile
+            changed={timeChanged}
             renderExtra={(value) =>
               value === 'custom' ? (
                 <div className="px-3 pb-2 pl-11">
@@ -88,18 +92,19 @@ export function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
             }
           />
         </div>
-        <div className="w-[calc(50%-0.375rem)] sm:w-44">
+        <div className="max-sm:grow sm:w-44">
           <FilterDropdown
             label="Category"
             options={CATEGORY_OPTIONS}
             selected={filters.categories}
             onChange={(categories) => onChange({ categories })}
-            panelClass="left-0"
+            labelOnlyOnMobile
+            changed={categoryChanged}
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:gap-3">
         <label className={`${toggleBox} ${toggleState(onCampusOnly)}`}>
           <input
             type="checkbox"

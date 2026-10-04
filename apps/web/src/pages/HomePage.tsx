@@ -1,7 +1,8 @@
 import { CalendarX, CloudOff, ListChecks, Map, LayoutGrid } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { EventCardSkeleton } from '@/components/EventCard'
+import { EventDetailPanel } from '@/components/EventDetailPanel'
 import { EventGrid } from '@/components/EventGrid'
 import { EventMap } from '@/components/EventMap'
 import { FilterBar } from '@/components/FilterBar'
@@ -10,6 +11,7 @@ import { useEvents, useMapEvents } from '@/lib/events'
 import { matchesNothing } from '@/lib/filters'
 import { parseBounds, writeBounds, type MapBounds } from '@/lib/geo'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
+import { isMobileViewport, useEventSelection } from '@/lib/useEventSelection'
 import { useFilters } from '@/lib/useFilters'
 
 export function HomePage() {
@@ -22,7 +24,7 @@ export function HomePage() {
   const query = useEvents(filters, bounds)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const mapQuery = useMapEvents(filters, bounds, showMap && Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY))
-  const navigate = useNavigate()
+  const selection = useEventSelection()
   const setQuery = useCallback((q: string) => update({ q }), [update])
   const searchArea = (area: MapBounds | null) => setParams(prev => {
     const next = new URLSearchParams(prev)
@@ -59,9 +61,9 @@ export function HomePage() {
   }, [params, setParams])
   const nothingSelected = matchesNothing(filters)
 
-  return <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8">
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-      <div>
+  return <div className="mx-auto max-w-[1600px] px-1.5 py-6 sm:px-6 sm:py-8">
+    <div className="mb-4 flex items-start justify-between gap-3 px-1.5 sm:mb-6 sm:px-0">
+      <div className="min-w-0">
         <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Find something fun</h1>
         <p className="mt-2 text-sm text-ink-muted">Good things are happening nearby, right now.</p>
       </div>
@@ -73,7 +75,7 @@ export function HomePage() {
     {bounds && <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span>Showing mapped events in your selected area. Unmapped venues are excluded.</span><button type="button" className="min-h-11 font-bold text-brand-700 underline" onClick={() => searchArea(null)}>Clear area</button></div>}
     <div className={`discovery-layout ${showMap ? 'with-map' : ''} mt-5`}>
       <section aria-label="Events" className={`${showMap ? 'hidden lg:block' : ''} min-w-0`}>
-        <p className="mb-5 text-sm text-ink-muted" role="status" aria-live="polite">
+        <p className="mb-3 px-1.5 text-sm text-ink-muted sm:mb-5 sm:px-0" role="status" aria-live="polite">
           {query.isPending ? 'Loading events' : query.isError && !items.length ? 'Events unavailable' : total ? `${total} events · ${items.length} shown` : '0 events'}
         </p>
         {query.isPending && <ul className="event-grid" aria-label="Loading events">{Array.from({ length: 6 }, (_, i) => <li key={i}><EventCardSkeleton /></li>)}</ul>}
@@ -83,7 +85,7 @@ export function HomePage() {
           action={<button type="button" onClick={clear} className={buttonPrimary}>Reset filters</button>}>
           Try another date, category, or area.
         </StateMessage>}
-        <EventGrid items={items} />
+        <EventGrid items={items} onSelect={selection.open} />
         {items.length > 0 && <div ref={loadMoreRef} className="flex min-h-20 items-center justify-center py-6 text-sm text-ink-muted">
           {query.isFetchNextPageError ? <div role="alert">Couldn't load more events. <button type="button" className={buttonSecondary} onClick={() => query.fetchNextPage()}>Try again</button></div>
             : query.isRefetchError ? <div role="alert">Couldn't refresh events. <button type="button" className={buttonSecondary} onClick={() => query.refetch()}>Try again</button></div>
@@ -91,9 +93,10 @@ export function HomePage() {
         </div>}
       </section>
       <aside className={`${showMap ? '' : 'hidden'} map-column`}>
-        {mapActivated && <EventMap events={mapQuery.data?.located ?? []} selectedId={null} onSelect={id => navigate(`/events/${id}`)}
+        {mapActivated && <EventMap events={mapQuery.data?.located ?? []} selectedId={null} onSelect={selection.open}
           bounds={bounds} onSearchArea={searchArea} loading={mapQuery.isFetching} error={Boolean(mapQuery.error)} />}
       </aside>
     </div>
+    {selection.selectedId && isMobileViewport() && <EventDetailPanel id={selection.selectedId} onClose={selection.close} returnFocus={selection.returnFocus} />}
   </div>
 }

@@ -30,8 +30,8 @@ export function Layout() {
             <span className="text-lg font-extrabold tracking-tight text-brand-900">Campus Radar</span>
           </Link>
           <nav aria-label="Main navigation" className="flex items-center gap-2 sm:gap-5">
-            <Link to="/" aria-current={pathname === '/' ? 'page' : undefined} className="min-h-11 content-center rounded-lg px-2 text-sm font-bold aria-[current=page]:text-brand-700">Explore</Link>
-            <Link to="/saved" aria-current={pathname === '/saved' ? 'page' : undefined} className="min-h-11 content-center rounded-lg px-2 text-sm font-bold aria-[current=page]:text-brand-700">Saved{ids.length ? ` (${ids.length})` : ''}</Link>
+            <Link to="/" aria-current={pathname === '/' ? 'page' : undefined} className="min-h-11 content-center rounded-full px-3 text-sm font-bold aria-[current=page]:bg-brand-700 aria-[current=page]:text-white">Explore</Link>
+            <Link to="/saved" aria-current={pathname === '/saved' ? 'page' : undefined} className="min-h-11 content-center rounded-full px-3 text-sm font-bold aria-[current=page]:bg-brand-700 aria-[current=page]:text-white">Saved{ids.length ? ` (${ids.length})` : ''}</Link>
           </nav>
         </div>
       </header>
