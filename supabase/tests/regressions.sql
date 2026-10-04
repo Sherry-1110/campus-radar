@@ -179,3 +179,20 @@ begin
 end;
 $$;
 rollback;
+
+-- Test: an exhibition is recognised from an explicit description phrase, but a loose mention is not enough.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, description, start_time, category)
+    values (school, 'We the People in Greektown', 'The new public art exhibit celebrates the 250th anniversary.', '2099-06-01T20:00:00Z', 'arts') returning categories into cats;
+  assert cats = array['arts', 'exhibition']::public.event_category[], 'Explicit exhibit phrase: ' || cats::text;
+  insert into public.events (school_id, title, description, start_time, category)
+    values (school, 'Sumo and Sushi', 'Watch a sumo exhibition match and eat.', '2099-06-02T20:00:00Z', 'sports') returning categories into cats;
+  assert cats = array['sports']::public.event_category[], 'Loose mention must not add exhibition: ' || cats::text;
+end;
+$$;
+rollback;
