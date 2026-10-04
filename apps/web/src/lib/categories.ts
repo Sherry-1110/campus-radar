@@ -6,6 +6,7 @@ import {
   PartyPopper,
   Sparkles,
   Store,
+  Ticket,
   Utensils,
   type LucideIcon,
 } from 'lucide-react'
@@ -28,6 +29,7 @@ const LOOK: Record<CategoryGroup, { icon: LucideIcon; gradient: string }> = {
   food: { icon: Utensils, gradient: 'from-orange-500 to-red-700' },
   market: { icon: Store, gradient: 'from-amber-500 to-orange-700' },
   exhibition: { icon: Frame, gradient: 'from-teal-500 to-cyan-800' },
+  performance: { icon: Ticket, gradient: 'from-indigo-500 to-violet-800' },
   other: { icon: Sparkles, gradient: 'from-violet-400 to-purple-700' },
 }
 

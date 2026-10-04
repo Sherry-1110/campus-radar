@@ -23,6 +23,16 @@ test('PiP keeps empty cancellation marker, unknown prices/posters, entities and 
   assert.ok(result.warnings.some(w => /poster/i.test(w)))
 })
 
+test('PiP drops Qatar events and events open only to faculty/staff', () => {
+  const audience = (...names: string[]) => names.map(n => `<audience>${n}</audience>`).join('')
+  const items = (extra: string) => parsePlanItPurple(xml(extra)).items.length
+  assert.equal(items(audience('Faculty/Staff')), 0)
+  assert.equal(items(audience('Faculty/Staff', 'Student')), 1)
+  assert.equal(items(audience('Public')), 1)
+  assert.equal(items(''), 1)
+  assert.equal(parsePlanItPurple(xml().replace('<location>Evanston</location>', '<location>Doha, Qatar</location>')).items.length, 0)
+})
+
 test('PiP rejects malformed XML or incomplete events instead of silently losing them', () => {
   for (const feed of ['<html>error</html>', '<planitpurple>upstream error</planitpurple>', '<planitpurple><event>', '<planitpurple><event><title>Oops</title></event></planitpurple>']) assert.throws(() => parsePlanItPurple(feed))
 })

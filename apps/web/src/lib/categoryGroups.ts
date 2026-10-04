@@ -10,9 +10,10 @@ export type DbCategory =
   | 'food'
   | 'market'
   | 'exhibition'
+  | 'performance'
   | 'other'
 
-export type CategoryGroup = 'arts' | 'sports' | 'academic' | 'social' | 'food' | 'market' | 'exhibition' | 'other'
+export type CategoryGroup = 'arts' | 'sports' | 'academic' | 'social' | 'food' | 'market' | 'exhibition' | 'performance' | 'other'
 
 export const CATEGORY_GROUPS: { value: CategoryGroup; label: string; members: DbCategory[] }[] = [
   { value: 'arts', label: 'Arts', members: ['arts', 'music'] },
@@ -22,6 +23,7 @@ export const CATEGORY_GROUPS: { value: CategoryGroup; label: string; members: Db
   { value: 'food', label: 'Food', members: ['food'] },
   { value: 'market', label: 'Market', members: ['market'] },
   { value: 'exhibition', label: 'Exhibition', members: ['exhibition'] },
+  { value: 'performance', label: 'Shows & Games', members: ['performance'] },
   { value: 'other', label: 'Other', members: ['other'] },
 ]
 

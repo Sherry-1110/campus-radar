@@ -121,7 +121,7 @@ declare
 begin
   insert into public.events (school_id, title, start_time, category, status)
     values (school, 'Jazz Wine Night', '2099-03-01T20:00:00Z', 'music', 'published') returning categories into cats;
-  assert cats = array['music', 'food']::public.event_category[], 'Source category first, then title matches: ' || cats::text;
+  assert cats = array['music', 'food', 'performance']::public.event_category[], 'Source category first, then title matches: ' || cats::text;
 
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Comedy Show and Yoga Party Lecture', '2099-03-02T20:00:00Z', 'other') returning categories into cats;
@@ -129,7 +129,7 @@ begin
 
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Open Mic', '2099-03-03T20:00:00Z', 'other') returning categories into cats;
-  assert cats = array['music']::public.event_category[], 'Music and arts share a group, so only one is kept: ' || cats::text;
+  assert cats = array['music', 'performance']::public.event_category[], 'Music and arts share a group, so only one is kept: ' || cats::text;
 
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Mystery Item', '2099-03-04T20:00:00Z', 'other') returning categories into cats;
@@ -193,6 +193,43 @@ begin
   insert into public.events (school_id, title, description, start_time, category)
     values (school, 'Sumo and Sushi', 'Watch a sumo exhibition match and eat.', '2099-06-02T20:00:00Z', 'sports') returning categories into cats;
   assert cats = array['sports']::public.event_category[], 'Loose mention must not add exhibition: ' || cats::text;
+end;
+$$;
+rollback;
+
+-- Test: shows, concerts and games get the Shows & Games category; talks and game nights do not.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Spring Choir Concert', '2099-07-01T20:00:00Z', 'music') returning categories into cats;
+  assert cats = array['music', 'performance']::public.event_category[], 'Concert: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Northwestern vs. Purdue', '2099-07-02T20:00:00Z', 'sports') returning categories into cats;
+  assert cats = array['sports', 'performance']::public.event_category[], 'Game: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Board Game Night', '2099-07-03T20:00:00Z', 'other') returning categories into cats;
+  assert not ('performance' = any(cats)), 'Game night is social: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Seminar: Game Theory Tournament', '2099-07-04T20:00:00Z', 'academic') returning categories into cats;
+  assert cats = array['academic']::public.event_category[], 'Talks add nothing: ' || cats::text;
+end;
+$$;
+rollback;
+
+-- Test: a food event is recognised from explicit description phrases when the title has no keyword.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, description, start_time, category)
+    values (school, 'Taste of Portugal', 'Portuguese Restaurant Week celebrates culinary traditions.', '2099-08-01T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['food']::public.event_category[], 'Food from description: ' || cats::text;
 end;
 $$;
 rollback;

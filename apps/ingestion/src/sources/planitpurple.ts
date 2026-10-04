@@ -23,7 +23,10 @@ export function parsePlanItPurple(xml: string): SourceResult {
     const fee = text(e.cost) || null
     const address = record(e.address)
     const place = ['building_name', 'address_2', 'address_1', 'city', 'state', 'zip'].map(k => text(address[k])).filter(Boolean).join(', ') || text(e.location) || null
-    if (text(e.location) === 'Qatar') continue
+    if (/qatar/i.test(`${text(e.location)} ${place}`)) continue
+    // Skip events open only to faculty and staff; students can't attend them.
+    const audiences = list(e.audience).map(text).filter(Boolean)
+    if (audiences.length > 0 && audiences.every(a => /^faculty\/staff$/i.test(a))) continue
     result.items.push({ external_id: id, related_url: url(e.externalurl), data: {
       title, description: description(e.description_html || e.description, url(e.registration_link)),
       cover_image_url: image, start_time: new Date(start).toISOString(),

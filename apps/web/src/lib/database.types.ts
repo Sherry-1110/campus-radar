@@ -611,6 +611,7 @@ export type Database = {
         | "other"
         | "market"
         | "exhibition"
+        | "performance"
       event_region: "evanston" | "chicago" | "between" | "other"
       event_status: "draft" | "pending_review" | "published" | "rejected"
       review_status: "pending" | "approved" | "rejected"
@@ -763,6 +764,7 @@ export const Constants = {
         "other",
         "market",
         "exhibition",
+        "performance",
       ],
       event_region: ["evanston", "chicago", "between", "other"],
       event_status: ["draft", "pending_review", "published", "rejected"],
