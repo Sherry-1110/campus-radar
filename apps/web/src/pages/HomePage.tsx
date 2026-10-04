@@ -62,8 +62,8 @@ export function HomePage() {
   return <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8">
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Make room for something fun.</h1>
-        <p className="mt-2 text-sm text-ink-muted">Explore events. Find your next plan.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Find something fun</h1>
+        <p className="mt-2 text-sm text-ink-muted">Good things are happening nearby, right now.</p>
       </div>
       <button type="button" className={buttonSecondary} aria-pressed={showMap} onClick={() => { setShowMap(value => !value); setMapActivated(true) }}>
         {showMap ? <LayoutGrid className="size-4" /> : <Map className="size-4" />}{showMap ? 'Cards' : 'Map'}
