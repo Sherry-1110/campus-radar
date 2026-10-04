@@ -19,12 +19,12 @@ import { cardPlace, venueName } from '../src/lib/place.ts'
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null)
 
-test('discovery defaults round-trip without excluding academic search results', () => {
+test('discovery defaults select every category and round-trip through the URL', () => {
   assert.equal(isDefaultFilters(DEFAULT_FILTERS), true)
   assert.equal(writeFilters(DEFAULT_FILTERS).toString(), '')
   assert.deepEqual(parseFilters(new URLSearchParams('')), DEFAULT_FILTERS)
   assert.deepEqual(DEFAULT_FILTERS.time, ['next7'])
-  assert.ok(!DEFAULT_FILTERS.categories.includes('academic'))
+  assert.deepEqual(DEFAULT_FILTERS.categories, ALL_CATEGORIES)
   assert.ok(parseFilters(new URLSearchParams('q=lecture')).categories.includes('academic'))
   assert.deepEqual(parseFilters(new URLSearchParams('cat=all')).categories, ALL_CATEGORIES)
   assert.deepEqual(parseFilters(writeFilters({ ...DEFAULT_FILTERS, time: ALL_TIMES })).time, ALL_TIMES)

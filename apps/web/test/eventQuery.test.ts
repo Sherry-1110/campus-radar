@@ -18,7 +18,7 @@ test('filters and grouping reach the database before pagination', async () => {
   assert.match(new URL(requested).pathname, /rpc\/browse_events$/)
   assert.deepEqual(body.p_bounds, bounds)
   assert.equal(body.p_group, true)
-  assert.ok(!(body.p_categories as string[]).includes('academic'))
+  assert.equal(body.p_categories, undefined, 'All categories means no category filter')
   assert.ok(Array.isArray(body.p_ranges))
   assert.equal(new URL(requested).searchParams.get('offset'), '12')
   await queryEvents(client, DEFAULT_FILTERS, { ids: [], group: false })

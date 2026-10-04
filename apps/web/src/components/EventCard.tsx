@@ -13,7 +13,7 @@ export function EventCard({ event }: { event: EventListItem }) {
   const source = eventPageUrl(event)
   const price = cardFee(event)
   const range = (event.matching_dates ?? 1) > 1 && event.last_start_time ? formatDateRange(event.start_time, event.last_start_time, 'short') : null
-  return <article className="group relative overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+  return <article className="group relative overflow-hidden rounded-2xl border border-line bg-surface shadow-card motion-safe:transition motion-safe:duration-200 hover:border-brand-200 hover:shadow-card-hover motion-safe:hover:-translate-y-0.5">
     <Link to={`/events/${event.id}`} aria-label={`View ${event.title}`} className="block">
       <Poster key={event.cover_image_url} src={event.cover_image_url} title={event.title} category={event.category} natural />
       <div className="flex flex-col gap-1.5 p-2 sm:p-3 [overflow-wrap:anywhere]">

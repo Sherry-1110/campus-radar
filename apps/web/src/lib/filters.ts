@@ -65,7 +65,7 @@ export const DEFAULT_FILTERS: EventFilters = {
   scopes: ALL_SCOPES,
   time: ['next7'],
   date: null,
-  categories: ALL_CATEGORIES.filter(value => value !== 'academic'),
+  categories: ALL_CATEGORIES,
   regions: ALL_REGIONS,
   freeOnly: false,
 }
