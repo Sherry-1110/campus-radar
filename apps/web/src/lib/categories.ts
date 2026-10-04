@@ -1,9 +1,11 @@
 import {
   Dumbbell,
+  Frame,
   GraduationCap,
   Palette,
   PartyPopper,
   Sparkles,
+  Store,
   Utensils,
   type LucideIcon,
 } from 'lucide-react'
@@ -24,6 +26,8 @@ const LOOK: Record<CategoryGroup, { icon: LucideIcon; gradient: string }> = {
   academic: { icon: GraduationCap, gradient: 'from-sky-500 to-blue-800' },
   social: { icon: PartyPopper, gradient: 'from-pink-500 to-rose-700' },
   food: { icon: Utensils, gradient: 'from-orange-500 to-red-700' },
+  market: { icon: Store, gradient: 'from-amber-500 to-orange-700' },
+  exhibition: { icon: Frame, gradient: 'from-teal-500 to-cyan-800' },
   other: { icon: Sparkles, gradient: 'from-violet-400 to-purple-700' },
 }
 

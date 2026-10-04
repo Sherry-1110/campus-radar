@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import type { EventListItem } from '@/lib/events'
 import { EventCard } from './EventCard'
 
-export function EventGrid({ items, onSelect, selectedId }: { items: EventListItem[]; onSelect?: (id: string, trigger: HTMLElement) => void; selectedId?: string | null }) {
+export function EventGrid({ items }: { items: EventListItem[] }) {
   const grid = useRef<HTMLUListElement>(null)
   useLayoutEffect(() => {
     if (!grid.current) return
@@ -16,6 +16,6 @@ export function EventGrid({ items, onSelect, selectedId }: { items: EventListIte
     return () => observer.disconnect()
   }, [items])
   return <ul ref={grid} className="event-grid event-feed">
-    {items.map(event => <li key={event.id}><EventCard event={event} onSelect={onSelect} selected={selectedId === event.id} /></li>)}
+    {items.map(event => <li key={event.id}><EventCard event={event} /></li>)}
   </ul>
 }

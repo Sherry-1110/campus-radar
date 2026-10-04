@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { badgeParts, formatTimeOnly } from '../src/lib/dates.ts'
+import { badgeParts } from '../src/lib/dates.ts'
 import {
   ALL_TIMES,
   DEFAULT_FILTERS,
@@ -17,7 +17,6 @@ import { cardFee } from '../src/lib/fee.ts'
 import { eventPageUrl, googleMapsUrl } from '../src/lib/maps.ts'
 import { cardPlace, venueName } from '../src/lib/place.ts'
 
-const plain = (s: string) => s.replace(/ /g, ' ')
 const iso = (d: Date | null) => (d ? d.toISOString() : null)
 
 test('discovery defaults round-trip without excluding academic search results', () => {
@@ -178,23 +177,18 @@ test('next seven days and weekend use calendar boundaries across DST and Sundays
   assert.equal(iso(sunday.to), '2026-11-02T06:00:00.000Z')
 })
 
-test('card date badge has a weekday and time text has no date', () => {
-  // Wed 2026-09-23 19:00 CDT to 21:00 CDT
-  const start = '2026-09-24T00:00:00Z'
-  const end = '2026-09-24T02:00:00Z'
-  assert.deepEqual(badgeParts(start), { month: 'SEP', day: '23', weekday: 'Wed' })
-  assert.equal(plain(formatTimeOnly(start, end)), '7:00 PM – 9:00 PM')
-  assert.equal(plain(formatTimeOnly(start, null)), '7:00 PM')
-  assert.equal(formatTimeOnly(start, end, true), 'All day')
+test('card date badge has a weekday', () => {
+  assert.deepEqual(badgeParts('2026-09-24T00:00:00Z'), { month: 'SEP', day: '23', weekday: 'Wed' })
 })
 
-test('card fee shows Free, a price or range, or nothing for long prose', () => {
+test('card fee shows only a clear price: Free, a dollar amount or range, or "Price varies"', () => {
   assert.equal(cardFee({ is_free: true, fee_text: null }), 'Free')
   assert.equal(cardFee({ is_free: false, fee_text: '$46' }), '$46')
   assert.equal(cardFee({ is_free: false, fee_text: '$50 – $171' }), '$50 – $171')
   assert.equal(cardFee({ is_free: false, fee_text: 'Tickets from $12.50 (students $8)' }), '$12.50')
-  assert.equal(cardFee({ is_free: false, fee_text: 'Suggested donation' }), 'Suggested donation')
-  assert.equal(cardFee({ is_free: false, fee_text: 'Varies by workshops and courses.' }), null)
+  assert.equal(cardFee({ is_free: false, fee_text: 'Varies by workshops and courses.' }), 'Price varies')
+  assert.equal(cardFee({ is_free: false, fee_text: 'Suggested donation' }), null)
+  assert.equal(cardFee({ is_free: false, fee_text: 'See website' }), null)
   assert.equal(cardFee({ is_free: false, fee_text: null }), null)
 })
 

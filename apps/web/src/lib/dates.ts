@@ -91,18 +91,10 @@ export function badgeParts(iso: string) {
   }
 }
 
-/** Clock time only (no date or weekday), for compact event cards. */
-export function formatTimeOnly(startIso: string, endIso: string | null, allDay = false): string {
-  if (allDay) return 'All day'
-  const start = timeFormat.format(new Date(startIso))
-  if (!endIso) return start
-  const end = timeFormat.format(new Date(endIso))
-  return end === start ? start : `${start} – ${end}`
-}
-
 export function formatWhenShort(startIso: string, endIso: string | null, allDay = false): string {
   const start = new Date(startIso)
-  if (allDay) return `${dayFormat.format(start)} · All day`
+  // "All day" often just means the source gave no time, so show the date alone.
+  if (allDay) return dayFormat.format(start)
   const time = timeFormat.format(start)
   return `${dayFormat.format(start)} · ${time}${endIso ? ` – ${endTime(start, new Date(endIso))}` : ''}`
 }
@@ -113,11 +105,26 @@ function endTime(start: Date, end: Date): string {
     : `${dayFormat.format(end)}, ${timeFormat.format(end)}`
 }
 
+const monthDayFormat = { long: new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'long', day: 'numeric' }),
+  short: new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric' }) }
+
+/** "October 9 – October 16, 2026" (or "Oct 9 – Oct 16" when short); null when both fall on the same Chicago day. */
+export function formatDateRange(firstIso: string, lastIso: string, style: 'long' | 'short' = 'long'): string | null {
+  const a = new Date(firstIso)
+  const b = new Date(lastIso)
+  if (sameChicagoDay(a, b)) return null
+  const ya = zonedParts(a).year
+  const yb = zonedParts(b).year
+  const f = monthDayFormat[style]
+  if (ya !== yb) return `${f.format(a)}, ${ya} – ${f.format(b)}, ${yb}`
+  return style === 'long' ? `${f.format(a)} – ${f.format(b)}, ${ya}` : `${f.format(a)} – ${f.format(b)}`
+}
+
 export function formatWhenLong(startIso: string, endIso: string | null, allDay = false) {
   const start = new Date(startIso)
   const end = endIso ? new Date(endIso) : null
   return {
     date: longDayFormat.format(start),
-    time: allDay ? 'All day' : end ? `${timeFormat.format(start)} – ${endTime(start, end)}` : timeFormat.format(start),
+    time: allDay ? '' : end ? `${timeFormat.format(start)} – ${endTime(start, end)}` : timeFormat.format(start),
   }
 }

@@ -1,12 +1,19 @@
-import { Bookmark } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import { useSavedEvents } from '@/lib/useSavedEvents'
 
-export function SaveButton({ id, title }: { id: string; title: string }) {
+/**
+ * Floats on a poster. Icon-only on cards, where it appears on hover (always on touch
+ * screens and once saved); with `label` it is a permanent "Save" pill, used on the detail page.
+ */
+export function SaveButton({ id, title, label = false }: { id: string; title: string; label?: boolean }) {
   const { ids, toggle } = useSavedEvents()
   const saved = ids.includes(id)
+  const shape = label ? 'min-h-11 gap-1.5 px-4 text-sm font-bold'
+    : `size-11 ${saved ? '' : 'opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100'}`
   return <button type="button" aria-label={`${saved ? 'Unsave' : 'Save'} ${title}`} aria-pressed={saved}
-    onClick={() => toggle(id)} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-bold text-brand-700 hover:bg-brand-50">
-    <Bookmark className={`size-4 ${saved ? 'fill-current' : ''}`} aria-hidden="true" />
-    <span>{saved ? 'Saved' : 'Save'}</span>
+    onClick={() => toggle(id)}
+    className={`inline-flex items-center justify-center rounded-full border border-line bg-brand-50/70 text-brand-700 shadow-card backdrop-blur-sm hover:bg-brand-50/90 ${shape}`}>
+    <Heart className={`size-5 ${saved ? 'fill-current' : ''}`} aria-hidden="true" />
+    {label && <span>{saved ? 'Saved' : 'Save'}</span>}
   </button>
 }

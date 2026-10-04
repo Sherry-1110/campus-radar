@@ -37,12 +37,9 @@ export function googleCalendarUrl(event: EventRow, pageUrl: string): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`
 }
 
-export function renderIcs(event: EventRow, pageUrl: string): string {
+function vevent(event: EventRow, pageUrl: string): string[] {
   const days = event.is_all_day ? allDayDates(event) : null
-  const lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Campus Radar//EN',
+  return [
     'BEGIN:VEVENT',
     `UID:${event.id}@campus-radar`,
     `DTSTAMP:${icsDate(new Date())}`,
@@ -54,13 +51,23 @@ export function renderIcs(event: EventRow, pageUrl: string): string {
     `DESCRIPTION:${icsEscape([event.description, pageUrl].filter(Boolean).join('\n\n'))}`,
     `URL:${pageUrl}`,
     'END:VEVENT',
+  ]
+}
+
+export function renderIcs(events: EventRow | EventRow[], pageUrl: string): string {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Campus Radar//EN',
+    ...[events].flat().flatMap(event => vevent(event, pageUrl)),
     'END:VCALENDAR',
   ]
   return lines.join('\r\n') + '\r\n'
 }
 
-export function downloadIcs(event: EventRow, pageUrl: string): void {
-  const blob = new Blob([renderIcs(event, pageUrl)], { type: 'text/calendar;charset=utf-8' })
+export function downloadIcs(events: EventRow | EventRow[], pageUrl: string): void {
+  const event = [events].flat()[0]
+  const blob = new Blob([renderIcs(events, pageUrl)], { type: 'text/calendar;charset=utf-8' })
   const href = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = href

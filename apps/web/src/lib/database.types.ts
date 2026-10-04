@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       event_coordinates: {
@@ -121,6 +146,7 @@ export type Database = {
       events: {
         Row: {
           area: Database["public"]["Enums"]["event_area"]
+          categories: Database["public"]["Enums"]["event_category"][]
           category: Database["public"]["Enums"]["event_category"]
           cover_image_url: string | null
           created_at: string
@@ -151,6 +177,7 @@ export type Database = {
         }
         Insert: {
           area: Database["public"]["Enums"]["event_area"]
+          categories?: Database["public"]["Enums"]["event_category"][]
           category?: Database["public"]["Enums"]["event_category"]
           cover_image_url?: string | null
           created_at?: string
@@ -181,6 +208,7 @@ export type Database = {
         }
         Update: {
           area?: Database["public"]["Enums"]["event_area"]
+          categories?: Database["public"]["Enums"]["event_category"][]
           category?: Database["public"]["Enums"]["event_category"]
           cover_image_url?: string | null
           created_at?: string
@@ -581,6 +609,8 @@ export type Database = {
         | "wellness"
         | "food"
         | "other"
+        | "market"
+        | "exhibition"
       event_region: "evanston" | "chicago" | "between" | "other"
       event_status: "draft" | "pending_review" | "published" | "rejected"
       review_status: "pending" | "approved" | "rejected"
@@ -715,6 +745,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       event_area: ["campus", "nearby"],
@@ -728,6 +761,8 @@ export const Constants = {
         "wellness",
         "food",
         "other",
+        "market",
+        "exhibition",
       ],
       event_region: ["evanston", "chicago", "between", "other"],
       event_status: ["draft", "pending_review", "published", "rejected"],

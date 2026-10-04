@@ -1,10 +1,9 @@
 import { CalendarX, CloudOff, ListChecks, Map, LayoutGrid } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import { EventCardSkeleton } from '@/components/EventCard'
 import { EventGrid } from '@/components/EventGrid'
 import { EventMap } from '@/components/EventMap'
-import { EventDetailPanel } from '@/components/EventDetailPanel'
 import { FilterBar } from '@/components/FilterBar'
 import { buttonPrimary, buttonSecondary, StateMessage } from '@/components/StateMessage'
 import { useEvents, useMapEvents } from '@/lib/events'
@@ -12,7 +11,6 @@ import { matchesNothing } from '@/lib/filters'
 import { parseBounds, writeBounds, type MapBounds } from '@/lib/geo'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { useFilters } from '@/lib/useFilters'
-import { useEventSelection } from '@/lib/useEventSelection'
 
 export function HomePage() {
   useDocumentTitle()
@@ -24,7 +22,7 @@ export function HomePage() {
   const query = useEvents(filters, bounds)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const mapQuery = useMapEvents(filters, bounds, showMap && Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY))
-  const selection = useEventSelection()
+  const navigate = useNavigate()
   const setQuery = useCallback((q: string) => update({ q }), [update])
   const searchArea = (area: MapBounds | null) => setParams(prev => {
     const next = new URLSearchParams(prev)
@@ -85,7 +83,7 @@ export function HomePage() {
           action={<button type="button" onClick={clear} className={buttonPrimary}>Reset filters</button>}>
           Try another date, category, or area.
         </StateMessage>}
-        <EventGrid items={items} onSelect={selection.open} selectedId={selection.selectedId} />
+        <EventGrid items={items} />
         {items.length > 0 && <div ref={loadMoreRef} className="flex min-h-20 items-center justify-center py-6 text-sm text-ink-muted">
           {query.isFetchNextPageError ? <div role="alert">Couldn't load more events. <button type="button" className={buttonSecondary} onClick={() => query.fetchNextPage()}>Try again</button></div>
             : query.isRefetchError ? <div role="alert">Couldn't refresh events. <button type="button" className={buttonSecondary} onClick={() => query.refetch()}>Try again</button></div>
@@ -93,10 +91,9 @@ export function HomePage() {
         </div>}
       </section>
       <aside className={`${showMap ? '' : 'hidden'} map-column`}>
-        {mapActivated && <EventMap events={mapQuery.data?.located ?? []} selectedId={selection.selectedId} onSelect={selection.open}
+        {mapActivated && <EventMap events={mapQuery.data?.located ?? []} selectedId={null} onSelect={id => navigate(`/events/${id}`)}
           bounds={bounds} onSearchArea={searchArea} loading={mapQuery.isFetching} error={Boolean(mapQuery.error)} />}
       </aside>
     </div>
-    {selection.selectedId && <EventDetailPanel id={selection.selectedId} onClose={selection.close} returnFocus={selection.returnFocus} />}
   </div>
 }

@@ -1,10 +1,11 @@
 import { chicagoDateString } from '@/lib/dates'
 import {
+  ALL_SCOPES,
   CATEGORY_OPTIONS,
-  REGION_OPTIONS,
-  SCOPE_OPTIONS,
+  DEFAULT_FILTERS,
   TIME_OPTIONS,
   type EventFilters,
+  type TimeValue,
 } from '@/lib/filters'
 import { FilterDropdown } from './FilterDropdown'
 import { SearchToggle } from './SearchToggle'
@@ -14,6 +15,15 @@ interface FilterBarProps {
   onChange: (patch: Partial<EventFilters>) => void
   onSearch: (q: string) => void
 }
+
+const QUICK_DATES: { value: TimeValue; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'weekend', label: 'This weekend' },
+]
+
+const toggleBox = 'flex min-h-11 whitespace-nowrap cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-bold shadow-card motion-safe:transition'
+const toggleState = (on: boolean) =>
+  on ? 'border-brand-700 bg-brand-50 text-brand-800' : 'border-line bg-surface text-ink hover:border-brand-300'
 
 function customDateLabel(date: string): string {
   const [y, m, d] = date.split('-').map(Number)
@@ -31,76 +41,75 @@ export function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
     filters.time.length === 1 && filters.time[0] === 'custom' && filters.date
       ? customDateLabel(filters.date)
       : undefined
+  const onCampusOnly = filters.scopes.length === 1 && filters.scopes[0] === 'campus'
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2" aria-label="Quick dates">
-        {(['next7', 'today', 'weekend'] as const).map(value => (
-          <button key={value} type="button" aria-pressed={filters.time.length === 1 && filters.time[0] === value}
-            onClick={() => onChange({ time: [value], date: null })}
-            className="min-h-11 rounded-full border border-line bg-surface px-4 text-sm font-bold aria-pressed:border-brand-700 aria-pressed:bg-brand-700 aria-pressed:text-white">
-            {TIME_OPTIONS.find(option => option.value === value)?.label}
-          </button>
-        ))}
-      </div>
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
-        <FilterDropdown
-          label="From"
-          options={SCOPE_OPTIONS}
-          selected={filters.scopes}
-          onChange={(scopes) => onChange({ scopes })}
-          panelClass="left-0"
-        />
-        <FilterDropdown
-          label="Time"
-          options={TIME_OPTIONS}
-          selected={filters.time}
-          onChange={(time) => onChange({ time })}
-          summary={timeSummary}
-          panelClass="right-0 sm:left-0 sm:right-auto"
-          renderExtra={(value) =>
-            value === 'custom' ? (
-              <div className="px-3 pb-2 pl-11">
-                <label className="sr-only" htmlFor="custom-date">
-                  Custom date
-                </label>
-                <input
-                  id="custom-date"
-                  type="date"
-                  min={chicagoDateString(new Date())}
-                  value={filters.date ?? ''}
-                  onChange={(e) => onChange({ date: e.target.value || null })}
-                  className="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink"
-                />
-              </div>
-            ) : null
-          }
-        />
-        <FilterDropdown
-          label="Category"
-          options={CATEGORY_OPTIONS}
-          selected={filters.categories}
-          onChange={(categories) => onChange({ categories })}
-          panelClass="left-0"
-        />
-        <FilterDropdown
-          label="Location"
-          options={REGION_OPTIONS}
-          selected={filters.regions}
-          onChange={(regions) => onChange({ regions })}
-          panelClass="right-0"
-        />
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-wrap items-center gap-3">
+        {QUICK_DATES.map(({ value, label }) => {
+          const on = filters.time.length === 1 && filters.time[0] === value
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={on}
+              // Pressing again returns to the default range.
+              onClick={() => onChange({ time: on ? DEFAULT_FILTERS.time : [value], date: null })}
+              className={`${toggleBox} ${toggleState(on)}`}
+            >
+              {label}
+            </button>
+          )
+        })}
+        <div className="w-[calc(50%-0.375rem)] sm:w-44">
+          <FilterDropdown
+            label="Time"
+            options={TIME_OPTIONS}
+            selected={filters.time}
+            onChange={(time) => onChange({ time })}
+            summary={timeSummary}
+            panelClass="left-0"
+            renderExtra={(value) =>
+              value === 'custom' ? (
+                <div className="px-3 pb-2 pl-11">
+                  <label className="sr-only" htmlFor="custom-date">
+                    Custom date
+                  </label>
+                  <input
+                    id="custom-date"
+                    type="date"
+                    min={chicagoDateString(new Date())}
+                    value={filters.date ?? ''}
+                    onChange={(e) => onChange({ date: e.target.value || null })}
+                    className="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink"
+                  />
+                </div>
+              ) : null
+            }
+          />
+        </div>
+        <div className="w-[calc(50%-0.375rem)] sm:w-44">
+          <FilterDropdown
+            label="Category"
+            options={CATEGORY_OPTIONS}
+            selected={filters.categories}
+            onChange={(categories) => onChange({ categories })}
+            panelClass="left-0"
+          />
+        </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <label
-          className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-bold shadow-card motion-safe:transition ${
-            filters.freeOnly
-              ? 'border-brand-700 bg-brand-50 text-brand-800'
-              : 'border-line bg-surface text-ink hover:border-brand-300'
-          }`}
-        >
+      <div className="flex flex-wrap items-center gap-3">
+        <label className={`${toggleBox} ${toggleState(onCampusOnly)}`}>
+          <input
+            type="checkbox"
+            checked={onCampusOnly}
+            onChange={(e) => onChange({ scopes: e.target.checked ? ['campus'] : ALL_SCOPES })}
+            className="size-5 accent-brand-700"
+          />
+          On campus only
+        </label>
+        <label className={`${toggleBox} ${toggleState(filters.freeOnly)}`}>
           <input
             type="checkbox"
             checked={filters.freeOnly}
@@ -111,7 +120,6 @@ export function FilterBar({ filters, onChange, onSearch }: FilterBarProps) {
         </label>
         <SearchToggle value={filters.q} onChange={onSearch} />
       </div>
-    </div>
     </div>
   )
 }

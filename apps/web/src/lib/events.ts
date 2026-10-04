@@ -20,15 +20,18 @@ export type EventListItem = Pick<
   | 'is_free'
   | 'fee_text'
   | 'category'
+  | 'categories'
   | 'area'
   | 'region'
   | 'neighborhood'
   | 'is_cancelled'
   | 'is_all_day'
-> & { matching_dates?: number }
+  | 'source_url'
+  | 'more_info_url'
+> & { matching_dates?: number; last_start_time?: string }
 
 const LIST_COLUMNS =
-  'id,series_id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,area,region,neighborhood,is_cancelled,is_all_day'
+  'id,series_id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,categories,area,region,neighborhood,is_cancelled,is_all_day,source_url,more_info_url'
 
 export function useEvents(filters: EventFilters, bounds: MapBounds | null = null) {
   return useInfiniteQuery({
@@ -73,12 +76,6 @@ export function useEvent(id: string | undefined) {
       return data
     },
   })
-}
-
-/** "Free", the listed price, or null when the source gave no price. */
-export function feeLabel(event: Pick<EventRow, 'is_free' | 'fee_text'>): string | null {
-  if (event.is_free) return 'Free'
-  return event.fee_text?.trim() || null
 }
 
 export type MapEvent = { id: string; title: string; event_coordinates: { latitude: number; longitude: number } }
