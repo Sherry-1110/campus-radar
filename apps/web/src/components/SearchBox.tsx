@@ -5,17 +5,15 @@ import { useLang } from '@/lib/i18n'
 interface SearchBoxProps {
   value: string
   onChange: (value: string) => void
-  autoFocus?: boolean
-  /** Called after the user submits with Enter or the Search button. */
-  onSubmitted?: () => void
 }
 
-export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBoxProps) {
+/** Inline search field in the filter row. Results update shortly after typing stops, or on Enter. */
+export function SearchBox({ value, onChange }: SearchBoxProps) {
   const { t } = useLang()
   const [draft, setDraft] = useState(value)
   const [prevValue, setPrevValue] = useState(value)
 
-  // Adopt external changes (e.g. "Clear filters") without an effect.
+  // Adopt external changes (e.g. "Reset filters") without an effect.
   if (value !== prevValue) {
     setPrevValue(value)
     setDraft(value)
@@ -33,25 +31,25 @@ export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBox
       onSubmit={(e) => {
         e.preventDefault()
         onChange(draft)
-        onSubmitted?.()
       }}
-      className="flex w-full items-center gap-2 rounded-2xl border border-line bg-white p-1.5 shadow-card"
+      className={`flex h-11 min-w-0 items-center rounded-xl border bg-surface shadow-card motion-safe:transition focus-within:border-brand-700 ${
+        value.trim() ? 'border-brand-700' : 'border-line hover:border-brand-300'
+      }`}
     >
       <label htmlFor="event-search" className="sr-only">
         {t('Search events')}
       </label>
-      <Search className="ml-3 size-5 shrink-0 text-ink-muted" aria-hidden="true" />
+      <Search className="ml-3 size-4 shrink-0 text-ink-muted" aria-hidden="true" />
       <input
         id="event-search"
-        autoFocus={autoFocus}
         type="search"
         inputMode="search"
         enterKeyHint="search"
         autoComplete="off"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder={t('Search events…')}
-        className="min-h-11 min-w-0 flex-1 bg-transparent px-1 text-base text-ink placeholder:text-ink-muted focus-visible:outline-none [&::-webkit-search-cancel-button]:hidden"
+        placeholder={t('Search')}
+        className="h-full min-w-0 flex-1 bg-transparent px-2 text-base text-ink placeholder:text-ink-muted focus-visible:outline-none sm:text-sm [&::-webkit-search-cancel-button]:hidden"
       />
       {draft && (
         <button
@@ -60,18 +58,12 @@ export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBox
             setDraft('')
             onChange('')
           }}
-          className="grid size-11 shrink-0 place-items-center rounded-xl text-ink-muted hover:bg-brand-50"
+          className="mr-1 grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-brand-50"
           aria-label={t('Clear search')}
         >
-          <X className="size-5" aria-hidden="true" />
+          <X className="size-4" aria-hidden="true" />
         </button>
       )}
-      <button
-        type="submit"
-        className="min-h-11 shrink-0 rounded-xl bg-brand-700 px-5 text-sm font-bold text-white motion-safe:transition hover:bg-brand-800"
-      >
-        {t('Search')}
-      </button>
     </form>
   )
 }

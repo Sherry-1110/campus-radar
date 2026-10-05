@@ -9,7 +9,7 @@ import {
 } from '@/lib/filters'
 import { useLang } from '@/lib/i18n'
 import { DateRangePicker } from './DateRangePicker'
-import { SearchToggle } from './SearchToggle'
+import { SearchBox } from './SearchBox'
 
 interface FilterBarProps {
   filters: EventFilters
@@ -64,7 +64,7 @@ export function FilterBar({ filters, onChange, onSearch, mapOn, onToggleMap }: F
         )
       })}
       <div className="max-sm:order-3">{picker}</div>
-      <label className={`${toggleBox} ${toggleState(onCampusOnly)} max-sm:order-1 sm:ml-auto`}>
+      <label className={`${toggleBox} ${toggleState(onCampusOnly)} max-sm:order-1 max-sm:grow-0 sm:ml-auto`}>
         <input
           type="checkbox"
           checked={onCampusOnly}
@@ -74,7 +74,7 @@ export function FilterBar({ filters, onChange, onSearch, mapOn, onToggleMap }: F
         <span className="sm:hidden">{t('On campus')}</span>
         <span className="max-sm:hidden">{t('On campus only')}</span>
       </label>
-      <label className={`${toggleBox} ${toggleState(filters.freeOnly)} max-sm:order-1`}>
+      <label className={`${toggleBox} ${toggleState(filters.freeOnly)} max-sm:order-1 max-sm:grow-0`}>
         <input
           type="checkbox"
           checked={filters.freeOnly}
@@ -83,7 +83,7 @@ export function FilterBar({ filters, onChange, onSearch, mapOn, onToggleMap }: F
         />
         {t('Free only')}
       </label>
-      <div className="max-sm:order-1"><SearchToggle value={filters.q} onChange={onSearch} /></div>
+      <div className="max-sm:order-1 max-sm:w-0 max-sm:min-w-0 max-sm:grow sm:w-52"><SearchBox value={filters.q} onChange={onSearch} /></div>
       <span className="hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
       <button
         type="button"

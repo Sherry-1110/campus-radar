@@ -66,7 +66,7 @@ export function HomePage() {
   const nothingSelected = matchesNothing(filters)
 
   return <>
-    {!filters.q && <FeaturedStrip items={featured.data ?? []} onSelect={selection.open} />}
+    <FeaturedStrip items={featured.data ?? []} onSelect={selection.open} />
   <div className="mx-auto max-w-[1600px] px-1.5 py-6 sm:px-6 sm:py-8">
     <FilterBar filters={filters} onChange={update} onSearch={setQuery} mapOn={showMap} onToggleMap={() => { setShowMap(value => !value); setMapActivated(true) }} />
     <CategoryTabs filters={filters} onChange={update} />

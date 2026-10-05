@@ -337,3 +337,25 @@ begin
 end;
 $$;
 rollback;
+
+-- Test: the feed has index-friendly date bounds and still respects open-ended and multiple ranges.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  n integer;
+begin
+  assert position('min((r->>''from'')::timestamptz)' in pg_get_functiondef('public.browse_events'::regproc)) > 0, 'Feed has a start bound';
+  insert into public.events (school_id, title, start_time, category, status) values
+    (school, 'Bound Test A', '2099-01-05T20:00:00Z', 'other', 'published'),
+    (school, 'Bound Test B', '2099-01-20T20:00:00Z', 'other', 'published');
+  select count(*) into n from public.browse_events(p_term => 'Bound Test',
+    p_ranges => '[{"from":"2099-01-01Z","to":"2099-01-10Z"},{"from":"2099-01-15Z","to":"2099-01-25Z"}]');
+  assert n = 2, 'Two separate ranges both match: ' || n;
+  select count(*) into n from public.browse_events(p_term => 'Bound Test', p_ranges => '[{"from":"2099-01-10Z","to":"2099-01-15Z"}]');
+  assert n = 0, 'Gap between ranges matches nothing: ' || n;
+  select count(*) into n from public.browse_events(p_term => 'Bound Test', p_ranges => '[{"from":"2099-01-10Z","to":null}]');
+  assert n = 1, 'Open-ended range: ' || n;
+end;
+$$;
+rollback;
