@@ -15,6 +15,8 @@ const HOLD_MS = 9000 // how long auto-play stays off after the visitor touches t
  * A full-width banner of 4:3, cropped posters with a visible edge and shadow, overlapping like a fanned deck. You swipe through it and it
  * also advances by itself, looping for ever: the list is rendered three times and, once the scroll has
  * come to rest, quietly jumps back by exactly one copy so the visitor never reaches an end.
+ * Scroll-snap targets the plain list items while the transform is applied to a card inside each, so the
+ * snapping never chases the animation.
  * The poster nearest the middle sits in front, full size and lit; the rest shrink, dim and stack behind it. Every poster carries its title.
  */
 export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onSelect: (id: string, trigger: HTMLElement) => void }) {
@@ -26,7 +28,7 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
   // Per frame we only write styles: positions are measured once (and on resize), never read while scrolling.
   // Posters shrink about their own centre, which would open gaps towards the edges, so each is also slid
   // towards the middle by exactly the amount the shrinking took away. That keeps every overlap the same width.
-  const metrics = useRef<{ cards: HTMLElement[]; dims: HTMLElement[]; centers: number[]; half: number; c: number } | null>(null)
+  const metrics = useRef<{ cards: HTMLElement[]; inner: HTMLElement[]; dims: HTMLElement[]; centers: number[]; half: number; c: number } | null>(null)
   const measure = useCallback(() => {
     const el = track.current
     if (!el || el.children.length < 2) return
@@ -35,6 +37,7 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
     const half = el.clientWidth / 2
     metrics.current = {
       cards, half,
+      inner: cards.map(li => li.firstElementChild as HTMLElement),
       dims: cards.map(li => li.querySelector<HTMLElement>('[data-dim]')!),
       centers: cards.map(li => li.offsetLeft + li.offsetWidth / 2),
       c: (cards[0]!.offsetWidth * SHRINK) / (2 * pitch * half), // how fast visual spacing falls behind layout spacing
@@ -50,7 +53,7 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
       const dist = Math.abs(x)
       const d = Math.min(dist / m.half, 1)
       const pulled = dist <= m.half ? m.c * dist * dist : m.c * m.half * (2 * dist - m.half) // quadratic, then straight on past the edge
-      li.style.transform = `translate3d(${(-Math.sign(x) * pulled).toFixed(1)}px,0,0) scale(${(1 - SHRINK * d).toFixed(3)})`
+      m.inner[i]!.style.transform = `translate3d(${(-Math.sign(x) * pulled).toFixed(1)}px,0,0) scale(${(1 - SHRINK * d).toFixed(3)})`
       li.style.zIndex = String(Math.round((1 - d) * 10))
       m.dims[i]!.style.opacity = (DIM * d).toFixed(3)
     })
@@ -69,10 +72,11 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
   }
   const loopWidth = () => pitch() * base.length
 
-  // Start on the first poster of the middle copy.
+  // Start with the first poster of the middle copy exactly in the middle.
   useEffect(() => {
     const el = track.current
-    if (el && items.length) el.scrollLeft = loopWidth()
+    const li = el?.children[base.length] as HTMLElement | undefined
+    if (el && li) el.scrollLeft = li.offsetLeft + li.offsetWidth / 2 - el.clientWidth / 2
     light()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
@@ -115,20 +119,22 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
         onPointerLeave={() => { hold.current.hover = false }} onPointerDown={pause} onWheel={pause} onTouchStart={pause}
         className="stage-track relative flex snap-x snap-mandatory items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {[...base, ...base, ...base].map((event, i) => (
-          <li key={i} aria-hidden={i < base.length || i >= base.length * 2 || undefined} className="stage-item -ml-8 shrink-0 snap-center sm:-ml-12">
+          <li key={i} aria-hidden={i < base.length || i >= base.length * 2 || undefined} className="stage-item -ml-8 shrink-0 snap-center snap-always sm:-ml-12">
+            <div data-card className="stage-card relative">
             <Link to={`/events/${event.id}`} aria-label={`View ${event.title}`} draggable={false}
               tabIndex={i < base.length || i >= base.length * 2 ? -1 : undefined}
               onClick={e => {
                 if (isMobileViewport() && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); onSelect(event.id, e.currentTarget) }
               }}
               className="relative block aspect-[4/3] h-56 overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,.7)] ring-1 ring-white/30 sm:h-80">
-              <img src={event.cover_image_url!} alt={`Poster for ${event.title}`} referrerPolicy="no-referrer" draggable={false}                 className="size-full object-cover" />
+              <img src={event.cover_image_url!} alt={`Poster for ${event.title}`} referrerPolicy="no-referrer" draggable={false} className="size-full object-cover" />
               <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/65 to-transparent px-4 pb-3 pt-16 text-white [text-shadow:0_1px_3px_rgb(0_0_0/.8)]">
                 <span className="line-clamp-2 block text-sm font-bold leading-tight sm:text-base">{event.title}</span>
                 <span className="line-clamp-1 mt-0.5 block text-xs text-white/80">{categoryMeta(event.category).label} · {formatWhenShort(event.start_time, null, event.is_all_day)}</span>
               </span>
             </Link>
             <span data-dim aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: DIM }} />
+            </div>
           </li>
         ))}
       </ul>

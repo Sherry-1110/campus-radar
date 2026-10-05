@@ -93,4 +93,5 @@
 }
 
 /* Home page poster banner: FeaturedStrip sets each poster's transform, stacking and dimming while scrolling */
-.stage-item { position: relative; will-change: transform; }
+.stage-item { position: relative; }
+.stage-card { will-change: transform; }
