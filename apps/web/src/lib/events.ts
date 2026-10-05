@@ -81,7 +81,8 @@ export function useEvent(id: string | undefined) {
   })
 }
 
-export type MapEvent = { id: string; title: string; event_coordinates: { latitude: number; longitude: number } }
+// browse_events returns the full list row for pins too, so the map can preview an event.
+export type MapEvent = EventListItem & { event_coordinates: { latitude: number; longitude: number } }
 
 export function useMapEvents(filters: EventFilters, bounds: MapBounds | null, enabled: boolean) {
   return useQuery({

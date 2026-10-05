@@ -1,11 +1,15 @@
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useEvent } from '@/lib/events'
 import { localized, useLang } from '@/lib/i18n'
 import { EventDetail } from './EventDetail'
+import { buttonSecondary } from './StateMessage'
 
-/** Phone bottom sheet: swipe or tap up for full screen, swipe or tap down to shrink or close. */
-export function EventDetailPanel({ id, onClose, returnFocus }: { id: string; onClose: () => void; returnFocus: RefObject<HTMLElement | null> }) {
+/**
+ * Phone bottom sheet: swipe or tap up for full screen, swipe or tap down to shrink or close.
+ * From the map it takes the lower half, so the map stays visible above it.
+ */
+export function EventDetailPanel({ id, onClose, returnFocus, half = false }: { id: string; onClose: () => void; returnFocus: RefObject<HTMLElement | null>; half?: boolean }) {
   const { lang, t } = useLang()
   const query = useEvent(id)
   const [expanded, setExpanded] = useState(false)
@@ -29,7 +33,7 @@ export function EventDetailPanel({ id, onClose, returnFocus }: { id: string; onC
     if (dy < -40) setExpanded(true)
     else if (dy > 40) { if (expanded) setExpanded(false); else onClose() }
   }
-  return <section role="dialog" aria-modal="false" aria-label={query.data ? localized(lang, query.data.title, query.data.title_zh) : t('Event details')} className={`event-panel ${expanded ? 'is-expanded' : ''}`}>
+  return <section role="dialog" aria-modal="false" aria-label={query.data ? localized(lang, query.data.title, query.data.title_zh) : t('Event details')} className={`event-panel ${half ? 'is-half' : ''} ${expanded ? 'is-expanded' : ''}`}>
     <header className="shrink-0 touch-none border-b border-line px-4 pb-1 pt-2"
       onPointerDown={e => { dragFrom.current = e.clientY }}
       onPointerUp={e => endDrag(e.clientY)} onPointerCancel={() => { dragFrom.current = null }}>
@@ -49,4 +53,26 @@ export function EventDetailPanel({ id, onClose, returnFocus }: { id: string; onC
       {query.data && <EventDetail key={id} event={query.data} />}
     </div>
   </section>
+}
+
+/** Wide screens with the map open: the event takes the list's place beside the map. */
+export function EventDetailColumn({ id, onClose }: { id: string; onClose: () => void }) {
+  const { t } = useLang()
+  const query = useEvent(id)
+  const top = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = top.current
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start' })
+    el?.querySelector('button')?.focus({ preventScroll: true })
+  }, [id])
+  return <div ref={top} className="scroll-mt-4">
+    <button type="button" onClick={onClose} className={`${buttonSecondary} mb-5`}>
+      <ArrowLeft className="size-4" aria-hidden="true" />
+      {t('Back to events')}
+    </button>
+    {query.isPending && <p role="status">{t('Loading event…')}</p>}
+    {query.isError && <div role="alert"><p>{t("Couldn't load this event.")}</p><button type="button" className="mt-3 underline" onClick={() => query.refetch()}>{t('Try again')}</button></div>}
+    {query.isSuccess && !query.data && <p>{t('Event not found. It may have been removed.')}</p>}
+    {query.data && <EventDetail key={id} event={query.data} />}
+  </div>
 }

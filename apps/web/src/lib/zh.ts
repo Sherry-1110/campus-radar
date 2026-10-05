@@ -44,7 +44,7 @@ export const ZH: Record<string, string> = {
   Fests: '市集',
   Parties: '派对',
   Event: '活动',
-  Sports: '运动',
+  Sports: '赛事',
   Academic: '学术',
   Social: '社交',
   Food: '美食',

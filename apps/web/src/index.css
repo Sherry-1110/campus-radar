@@ -80,6 +80,7 @@
 .event-pin { display: grid; place-items: center; width: 30px; height: 30px; border: 2px solid white; border-radius: 50% 50% 50% 4px; background: var(--color-brand-700); color: white; font: 700 13px system-ui; box-shadow: 0 2px 7px #0004; }
 .event-pin.is-selected { background: var(--color-accent); color: var(--color-ink); outline: 3px solid var(--color-brand-700); }
 .event-panel { position: fixed; z-index: 45; inset: auto 0 0; display: flex; flex-direction: column; height: 57dvh; max-height: calc(100dvh - 12px); border: 1px solid var(--color-line); border-radius: 24px 24px 0 0; background: var(--color-surface); box-shadow: 0 -4px 35px #1b123026; padding-bottom: env(safe-area-inset-bottom); }
+.event-panel.is-half { height: 50dvh; }
 .event-panel.is-expanded { height: calc(100dvh - 12px); }
 @media (min-width: 1024px) {
   .discovery-layout.with-map { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(360px, 1fr); gap: 1.5rem; align-items: start; }
