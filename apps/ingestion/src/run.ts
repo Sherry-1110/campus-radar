@@ -5,7 +5,7 @@ import { captureSource, loadReplay, pipelineRpc, PROCESSOR_VERSION, stageItems }
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { storePosters } from './posters.ts'
 import { enrichSource } from './enrichment.ts'
-import { fetchOriginal } from './original-fetch.ts'
+import { crawlerUserAgent, fetchOriginal } from './original-fetch.ts'
 import { createJev } from './semantic.ts'
 import { evaluateJev } from './semantic-eval.ts'
 import { sources as registry } from './registry.ts'
@@ -77,7 +77,7 @@ export async function fetchText(url: string, hosts = ['planitpurple.northwestern
         if (target.protocol !== 'https:' || !hosts.includes(target.hostname)
           || target.username || target.password || target.port) throw new Error('Unapproved source URL')
         const response = await fetch(target, {
-          headers: { 'User-Agent': 'CampusRadar/1.0 (+https://campus-radar.com)', Accept: 'application/json, application/xml, text/html;q=0.9' },
+          headers: { 'User-Agent': crawlerUserAgent(target.hostname), Accept: target.hostname === 'do312.com' ? 'text/html' : 'application/json, application/xml, text/html;q=0.9' },
           redirect: 'manual', signal: AbortSignal.timeout(60_000),
         })
         if ([301, 302, 303, 307, 308].includes(response.status)) {

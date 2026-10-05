@@ -98,3 +98,20 @@ test('statement timeouts retry smaller rolled-back batches without duplicating c
   assert.equal(stats.inserted, 125)
   assert.deepEqual(committed, items.map(i => i.external_id))
 })
+
+
+test('Do312 collection uses its accepted identifying header across pagination and redirects', async t => {
+  const seen: string[] = []
+  t.mock.method(globalThis, 'fetch', async (input: URL, init: RequestInit) => {
+    const ua = new Headers(init.headers).get('User-Agent')!
+    seen.push(ua)
+    if (input.hostname === 'do312.com') {
+      if (ua !== 'CampusRadar/1.0') return new Response('', { status: 403 })
+      if (new Headers(init.headers).get('Accept') !== 'text/html') return new Response('{"html":"fragment"}')
+      return new Response(null, { status: 302, headers: { location: 'https://organizer.example.com/event' } })
+    }
+    return new Response('event')
+  })
+  assert.equal(await runner.fetchText('https://do312.com/events/2026/10/05', ['do312.com', 'organizer.example.com']), 'event')
+  assert.deepEqual(seen, ['CampusRadar/1.0', 'CampusRadar/1.0 (+https://campus-radar.com)'])
+})

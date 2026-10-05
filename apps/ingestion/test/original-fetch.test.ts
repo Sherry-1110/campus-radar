@@ -138,3 +138,15 @@ test('poster downloads reuse redirect/DNS protection and enforce binary size and
   await assert.rejects(fetchPublicFile('https://public.example.com/poster', ['image/png'], 8), /content type|HTML/)
   await assert.rejects(fetchPublicFile('https://public.example.com/poster', ['image/png'], 8), /public address/)
 })
+
+
+test('Do312 detail requests use the accepted identifying header without changing organizer requests', async t => {
+  t.mock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }])
+  const calls = transport(t, [
+    { status: 302, headers: { location: 'https://organizer.example.com/event' } },
+    { body: '<html>Event description</html>' },
+  ])
+  await fetchOriginal('https://do312.com/events/example')
+  assert.deepEqual(calls.map(call => (call.options.headers as Record<string, string>)['User-Agent']),
+    ['CampusRadar/1.0', 'CampusRadar/1.0 (+https://campus-radar.com)'])
+})

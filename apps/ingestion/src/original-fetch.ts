@@ -2,6 +2,11 @@ import dns from 'node:dns/promises'
 import https from 'node:https'
 import { BlockList, isIP } from 'node:net'
 
+// Do312 accepts our product token but rejects the header with its contact-URL comment.
+export function crawlerUserAgent(hostname: string) {
+  return hostname === 'do312.com' ? 'CampusRadar/1.0' : 'CampusRadar/1.0 (+https://campus-radar.com)'
+}
+
 const forbidden = new BlockList()
 // Conservatively exclude all IANA special-purpose IPv4 blocks, plus multicast.
 // https://www.iana.org/assignments/iana-ipv4-special-registry/
@@ -61,7 +66,7 @@ async function fetchResource(raw: string, signal: AbortSignal, types: string[], 
         signal, maxHeaderSize: 16 * 1024,
         // Pin the validated answer while retaining the hostname for SNI/certificate checks.
         lookup: (_hostname, _options, callback) => callback(null, address.address, address.family),
-        headers: { 'User-Agent': 'CampusRadar/1.0 (+https://campus-radar.com)', Accept: types.join(', '), 'Accept-Encoding': 'identity' },
+        headers: { 'User-Agent': crawlerUserAgent(url.hostname), Accept: types.join(', '), 'Accept-Encoding': 'identity' },
       }, incoming => {
         incoming.on('error', reject)
         const fail = (message: string) => { incoming.destroy(); reject(new Error(message)) }
