@@ -1,5 +1,5 @@
 import unittest
-from translate import deepl_url, pending_texts, within_budget
+from translate import deepl_url, pending_texts, unwrap, within_budget
 
 
 class Helpers(unittest.TestCase):
@@ -19,6 +19,11 @@ class Helpers(unittest.TestCase):
     def test_budget_keeps_order_and_stops_at_the_first_text_that_does_not_fit(self):
         self.assertEqual(within_budget(['aaaa', 'bb', 'cccc', 'd'], 7), ['aaaa', 'bb'])
         self.assertEqual(within_budget(['aaaa'], 0), [])
+
+    def test_quotes_around_a_whole_name_are_dropped_unless_the_english_had_them(self):
+        self.assertEqual(unwrap('The Night of 1,000 Jack-o’-Lanterns', '“千盏南瓜灯之夜”'), '千盏南瓜灯之夜')
+        self.assertEqual(unwrap('“Dead Girl’s Quinceañera”', '“死去女孩的成人礼”'), '“死去女孩的成人礼”')
+        self.assertEqual(unwrap('Stars & Garters', '“星与吊带”剧院'), '“星与吊带”剧院')
 
 
 if __name__ == '__main__':

@@ -47,6 +47,13 @@ def within_budget(texts, budget):
     return chosen
 
 
+def unwrap(english, chinese):
+    """DeepL sometimes quotes a whole name ("“千盏南瓜灯之夜”"); keep quotes only if the English had them."""
+    if len(chinese) > 2 and chinese[0] in '“"' and chinese[-1] in '”"' and english[:1] not in '“"\'‘':
+        return chinese[1:-1]
+    return chinese
+
+
 def request(url, headers, body=None, method=None):
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers={**headers, **({'Content-Type': 'application/json'} if data else {})})
@@ -115,6 +122,7 @@ def main():
         if not chosen:
             continue
         for text, chinese in zip(chosen, deepl.translate(chosen)):
+            chinese = unwrap(text, chinese)
             if args.dry_run:
                 print(json.dumps({column: text, f'{column}_zh': chinese}, ensure_ascii=False))
             else:
