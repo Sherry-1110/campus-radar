@@ -47,7 +47,8 @@ export function FilterBar({ filters, onChange, onSearch, mapOn, onToggleMap }: F
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
+    // Phones: a 4-column grid, so the two rows line up column by column.
+    <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_auto] items-center gap-1.5 sm:flex sm:flex-wrap sm:gap-3">
       {QUICK_DATES.map(({ value, label }) => {
         const on = filters.time.length === 1 && filters.time[0] === value
         return (
@@ -83,7 +84,7 @@ export function FilterBar({ filters, onChange, onSearch, mapOn, onToggleMap }: F
         />
         {t('Free only')}
       </label>
-      <div className="max-sm:order-1 max-sm:w-0 max-sm:min-w-0 max-sm:grow sm:w-52"><SearchBox value={filters.q} onChange={onSearch} /></div>
+      <div className="min-w-0 max-sm:order-1 sm:w-52"><SearchBox value={filters.q} onChange={onSearch} /></div>
       <span className="hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
       <button
         type="button"
@@ -95,8 +96,6 @@ export function FilterBar({ filters, onChange, onSearch, mapOn, onToggleMap }: F
         {mapOn ? <LayoutGrid className="size-5 sm:size-4" aria-hidden="true" /> : <Map className="size-5 sm:size-4" aria-hidden="true" />}
         <span className="max-sm:hidden">{mapOn ? t('Cards') : t('Map')}</span>
       </button>
-      {/* Ends the first row on phones. */}
-      <span className="basis-full max-sm:order-2 sm:hidden" aria-hidden="true" />
     </div>
   )
 }
