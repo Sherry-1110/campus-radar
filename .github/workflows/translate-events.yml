@@ -1,0 +1,45 @@
+name: Translate events to Chinese
+
+# Run by hand from the Actions tab. Translates upcoming events that have no Chinese text yet.
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: How many days ahead to translate
+        default: '7'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translate-events
+  cancel-in-progress: false
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/ingestion/translate/requirements.txt
+      - name: Install the translation model library
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r apps/ingestion/translate/requirements.txt
+      - name: Cache the English-to-Chinese model
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/argos-translate
+          key: argos-en-zh-v1
+      - name: Translate
+        working-directory: apps/ingestion/translate
+        env:
+          DAYS: ${{ inputs.days }}
+          SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python translate.py --days "$DAYS"

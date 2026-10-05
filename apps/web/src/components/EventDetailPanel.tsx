@@ -1,12 +1,12 @@
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useEvent } from '@/lib/events'
-import { useLang } from '@/lib/i18n'
+import { localized, useLang } from '@/lib/i18n'
 import { EventDetail } from './EventDetail'
 
 /** Phone bottom sheet: swipe or tap up for full screen, swipe or tap down to shrink or close. */
 export function EventDetailPanel({ id, onClose, returnFocus }: { id: string; onClose: () => void; returnFocus: RefObject<HTMLElement | null> }) {
-  const { t } = useLang()
+  const { lang, t } = useLang()
   const query = useEvent(id)
   const [expanded, setExpanded] = useState(false)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -29,7 +29,7 @@ export function EventDetailPanel({ id, onClose, returnFocus }: { id: string; onC
     if (dy < -40) setExpanded(true)
     else if (dy > 40) { if (expanded) setExpanded(false); else onClose() }
   }
-  return <section role="dialog" aria-modal="false" aria-label={query.data?.title ?? t('Event details')} className={`event-panel ${expanded ? 'is-expanded' : ''}`}>
+  return <section role="dialog" aria-modal="false" aria-label={query.data ? localized(lang, query.data.title, query.data.title_zh) : t('Event details')} className={`event-panel ${expanded ? 'is-expanded' : ''}`}>
     <header className="shrink-0 touch-none border-b border-line px-4 pb-1 pt-2"
       onPointerDown={e => { dragFrom.current = e.clientY }}
       onPointerUp={e => endDrag(e.clientY)} onPointerCancel={() => { dragFrom.current = null }}>

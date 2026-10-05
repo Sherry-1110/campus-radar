@@ -1,12 +1,11 @@
-import { categoryMeta, type EventCategory } from '@/lib/categories'
-import { groupOf } from '@/lib/categoryGroups'
+import { eventGroups, type EventCategory } from '@/lib/categories'
 import { useLang } from '@/lib/i18n'
 
-/** One chip per site-level category, at most 3. Falls back to the primary category. */
+/** One chip per site category, at most 3. Talks and the like have none. */
 export function CategoryChips({ event }: { event: { category: EventCategory; categories?: EventCategory[] } }) {
   const { t } = useLang()
-  const all = event.categories?.length ? event.categories : [event.category]
-  const metas = [...new Map(all.map(c => [groupOf(c), categoryMeta(c)])).values()].slice(0, 3)
+  const metas = eventGroups(event)
+  if (!metas.length) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {metas.map(meta => {

@@ -2,7 +2,7 @@ import type { EventListItem } from './events'
 
 export type FeaturedCandidate = EventListItem & { description: string | null }
 
-const SPECIAL = new Set(['performance', 'exhibition', 'market', 'social', 'arts', 'music', 'food'])
+const SPECIAL = new Set(['music', 'arts', 'exhibition', 'play', 'market', 'social'])
 const DAY = 86_400_000
 
 /** Higher means bigger: a long write-up, a multi-day run, a link to more information. */

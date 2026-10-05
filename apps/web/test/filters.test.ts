@@ -25,7 +25,7 @@ test('discovery defaults select every category and round-trip through the URL', 
   assert.deepEqual(parseFilters(new URLSearchParams('')), DEFAULT_FILTERS)
   assert.deepEqual(DEFAULT_FILTERS.time, ['next7'])
   assert.deepEqual(DEFAULT_FILTERS.categories, ALL_CATEGORIES)
-  assert.ok(parseFilters(new URLSearchParams('q=lecture')).categories.includes('academic'))
+  assert.deepEqual(parseFilters(new URLSearchParams('q=lecture')).categories, ALL_CATEGORIES)
   assert.deepEqual(parseFilters(new URLSearchParams('cat=all')).categories, ALL_CATEGORIES)
   assert.deepEqual(parseFilters(writeFilters({ ...DEFAULT_FILTERS, time: ALL_TIMES })).time, ALL_TIMES)
 })
@@ -114,6 +114,14 @@ test('overlapping presets merge into the widest range', () => {
   assert.equal(iso(ranges[0].to), '2026-10-01T05:00:00.000Z')
 })
 
+test('a custom range runs through its last day', () => {
+  const now = new Date('2026-10-04T17:00:00Z')
+  const [range] = timeRanges({ time: ['custom'], date: '2026-10-10', dateEnd: '2026-10-12' }, now)
+  assert.equal(range!.from.toISOString(), '2026-10-10T05:00:00.000Z')
+  assert.equal(range!.to!.toISOString(), '2026-10-13T05:00:00.000Z')
+  assert.equal(writeFilters({ ...DEFAULT_FILTERS, time: ['custom'], date: '2026-10-10', dateEnd: '2026-10-12' }).get('until'), '2026-10-12')
+})
+
 test('a custom date adds its own day; past dates are ignored', () => {
   const now = new Date('2026-09-23T15:00:00Z')
   const future = timeRanges({ time: ['today', 'custom'], date: '2026-10-05' }, now)
@@ -128,10 +136,10 @@ test('a custom date adds its own day; past dates are ignored', () => {
 
 test('category groups expand to their database categories', () => {
   assert.deepEqual(categoryClause(ALL_CATEGORIES), { kind: 'all' })
-  assert.deepEqual(categoryClause(['arts']), { kind: 'some', dbCategories: ['arts', 'music'] })
-  assert.deepEqual(categoryClause(['sports', 'academic']), {
+  assert.deepEqual(categoryClause(['arts']), { kind: 'some', dbCategories: ['arts', 'exhibition'] })
+  assert.deepEqual(categoryClause(['sports', 'fests']), {
     kind: 'some',
-    dbCategories: ['sports', 'wellness', 'academic', 'career'],
+    dbCategories: ['sports', 'wellness', 'market'],
   })
 })
 

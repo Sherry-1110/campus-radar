@@ -14,10 +14,12 @@ export type EventListItem = Pick<
   | 'id'
   | 'series_id'
   | 'title'
+  | 'title_zh'
   | 'cover_image_url'
   | 'start_time'
   | 'end_time'
   | 'location'
+  | 'location_zh'
   | 'is_free'
   | 'fee_text'
   | 'category'
@@ -32,7 +34,7 @@ export type EventListItem = Pick<
 > & { matching_dates?: number; last_start_time?: string }
 
 const LIST_COLUMNS =
-  'id,series_id,title,cover_image_url,start_time,end_time,location,is_free,fee_text,category,categories,area,region,neighborhood,is_cancelled,is_all_day,source_url,more_info_url'
+  'id,series_id,title,title_zh,cover_image_url,start_time,end_time,location,location_zh,is_free,fee_text,category,categories,area,region,neighborhood,is_cancelled,is_all_day,source_url,more_info_url'
 
 export function useEvents(filters: EventFilters, bounds: MapBounds | null = null) {
   return useInfiniteQuery({
@@ -140,7 +142,7 @@ export function useFeaturedEvents() {
     queryFn: async ({ signal }) => {
       const from = startOfChicagoDay(new Date())
       const { data, error } = await supabase.from('events').select(`${LIST_COLUMNS},description`)
-        .eq('status', 'published').eq('is_cancelled', false).not('cover_image_url', 'is', null)
+        .eq('status', 'published').eq('is_cancelled', false).eq('is_hidden', false).not('cover_image_url', 'is', null)
         .gte('start_time', from.toISOString()).lt('start_time', new Date(from.getTime() + 14 * 86_400_000).toISOString())
         .order('start_time').limit(300).abortSignal(signal).returns<FeaturedCandidate[]>()
       if (error) throw error

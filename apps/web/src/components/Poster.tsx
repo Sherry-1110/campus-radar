@@ -34,7 +34,7 @@ export function Poster({ src, title, category, className = '', natural = false }
     <div
       className={`${natural ? 'relative aspect-[4/3] w-full' : 'absolute inset-0'} flex items-center justify-center overflow-hidden bg-gradient-to-br ${meta.gradient} ${className}`}
       role="img"
-      aria-label={t('{0} event', t(meta.label))}
+      aria-label={meta.value === 'event' ? t('Event') : t('{0} event', t(meta.label))}
     >
       <Icon className="size-1/3 text-white/25" strokeWidth={1.25} aria-hidden="true" />
       <div className="absolute -right-8 -top-8 size-32 rounded-full bg-white/10" aria-hidden="true" />

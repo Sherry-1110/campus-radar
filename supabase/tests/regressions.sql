@@ -121,15 +121,15 @@ declare
 begin
   insert into public.events (school_id, title, start_time, category, status)
     values (school, 'Jazz Wine Night', '2099-03-01T20:00:00Z', 'music', 'published') returning categories into cats;
-  assert cats = array['music', 'food', 'performance']::public.event_category[], 'Source category first, then title matches: ' || cats::text;
+  assert cats = array['music', 'food']::public.event_category[], 'Source category first, then title matches: ' || cats::text;
 
   insert into public.events (school_id, title, start_time, category)
-    values (school, 'Comedy Show and Yoga Party Lecture', '2099-03-02T20:00:00Z', 'other') returning categories into cats;
+    values (school, 'Comedy Show, Yoga and Dance Party', '2099-03-02T20:00:00Z', 'other') returning categories into cats;
   assert cardinality(cats) = 3, 'At most 3 categories: ' || cats::text;
 
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Open Mic', '2099-03-03T20:00:00Z', 'other') returning categories into cats;
-  assert cats = array['music', 'performance']::public.event_category[], 'Music and arts share a group, so only one is kept: ' || cats::text;
+  assert cats = array['music']::public.event_category[], 'Music and arts share a group, so only one is kept: ' || cats::text;
 
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Mystery Item', '2099-03-04T20:00:00Z', 'other') returning categories into cats;
@@ -206,13 +206,13 @@ declare
 begin
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Spring Choir Concert', '2099-07-01T20:00:00Z', 'music') returning categories into cats;
-  assert cats = array['music', 'performance']::public.event_category[], 'Concert: ' || cats::text;
+  assert cats = array['music']::public.event_category[], 'Concert: ' || cats::text;
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Northwestern vs. Purdue', '2099-07-02T20:00:00Z', 'sports') returning categories into cats;
-  assert cats = array['sports', 'performance']::public.event_category[], 'Game: ' || cats::text;
+  assert cats = array['sports']::public.event_category[], 'Game: ' || cats::text;
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Board Game Night', '2099-07-03T20:00:00Z', 'other') returning categories into cats;
-  assert not ('performance' = any(cats)), 'Game night is social: ' || cats::text;
+  assert cats = array['play']::public.event_category[], 'Game night is an activity: ' || cats::text;
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Seminar: Game Theory Tournament', '2099-07-04T20:00:00Z', 'academic') returning categories into cats;
   assert cats = array['academic']::public.event_category[], 'Talks add nothing: ' || cats::text;
@@ -246,10 +246,94 @@ begin
   assert cats = array['play']::public.event_category[], 'Escape room: ' || cats::text;
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Trivia Night', '2099-09-02T20:00:00Z', 'other') returning categories into cats;
-  assert cats = array['social', 'play']::public.event_category[], 'Trivia is social and play: ' || cats::text;
+  assert cats = array['play']::public.event_category[], 'Trivia is an activity: ' || cats::text;
   insert into public.events (school_id, title, start_time, category)
     values (school, 'Seminar: Interactive Learning', '2099-09-03T20:00:00Z', 'academic') returning categories into cats;
   assert cats = array['academic']::public.event_category[], 'Talks add nothing: ' || cats::text;
+end;
+$$;
+rollback;
+
+-- Test: Chinese titles reach the feed but the long Chinese description does not; a changed source drops its stale translation.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  ev jsonb;
+  zh text;
+begin
+  insert into public.events (school_id, title, description, start_time, category, status, title_zh, description_zh)
+    values (school, 'Zh Feed Test', 'Original text', '2099-10-01T20:00:00Z', 'other', 'published', '中文标题', '中文简介');
+  select event into ev from public.browse_events(p_term => 'Zh Feed Test') limit 1;
+  assert ev->>'title_zh' = '中文标题', 'Feed carries the Chinese title';
+  assert not (ev ? 'description_zh'), 'Feed leaves out the Chinese description';
+  update public.events set description = 'Changed text' where title = 'Zh Feed Test';
+  select description_zh into zh from public.events where title = 'Zh Feed Test';
+  assert zh is null, 'Stale description translation is cleared';
+  select title_zh into zh from public.events where title = 'Zh Feed Test';
+  assert zh = '中文标题', 'Unchanged title keeps its translation';
+end;
+$$;
+rollback;
+
+-- Test: the six site categories — fests, parties and activities — come from the title; career fairs and receptions do not count.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, start_time, category) values (school, '10th Annual Lincoln Park Wine Fest', '2099-11-01T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['market', 'food']::public.event_category[], 'Food festival is a fest: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Mocktoberfest', '2099-11-02T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['market']::public.event_category[], 'Words ending in fest: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Northshore College Fair', '2099-11-03T20:00:00Z', 'other') returning categories into cats;
+  assert not ('market' = any(cats)), 'College fairs are not fests: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Lincoln Brunch Fest', '2099-11-04T20:00:00Z', 'other') returning categories into cats;
+  assert not ('play' = any(cats)), 'A brunch festival is a fest, not an activity: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Grad Student Mixer', '2099-11-05T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['social']::public.event_category[], 'Mixer is a party: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Retirement Reception', '2099-11-06T20:00:00Z', 'social') returning categories into cats;
+  assert cats = array['other']::public.event_category[], 'A source''s social label alone is not a party: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Chicago Architecture River Tour', '2099-11-07T20:00:00Z', 'other') returning categories into cats;
+  assert 'play' = any(cats), 'River tour is an activity: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'The Residents – Chicago – Eskimo Live! Tour', '2099-11-08T20:00:00Z', 'music') returning categories into cats;
+  assert not ('play' = any(cats)), 'A concert tour is not an activity: ' || cats::text;
+end;
+$$;
+rollback;
+
+-- Test: obvious internal events are hidden, but only when they come from a Northwestern calendar.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  nu uuid := (select id from public.sources where url ilike '%planitpurple%');
+  other_source uuid := (select id from public.sources where url ilike '%eventbrite%');
+  hidden boolean;
+begin
+  insert into public.events (school_id, title, start_time, source_id, status) values (school, 'DOM Medical Grand Rounds', '2099-12-01T20:00:00Z', nu, 'published') returning is_hidden into hidden;
+  assert hidden, 'Grand rounds from Northwestern are hidden';
+  insert into public.events (school_id, title, start_time, source_id, status) values (school, 'Grand Rounds Comedy Night', '2099-12-02T20:00:00Z', other_source, 'published') returning is_hidden into hidden;
+  assert not hidden, 'Other sources are never hidden';
+  insert into public.events (school_id, title, start_time, source_id, status) values (school, 'Fall Concert', '2099-12-03T20:00:00Z', nu, 'published') returning is_hidden into hidden;
+  assert not hidden, 'Ordinary Northwestern events stay visible';
+  assert not exists (select 1 from public.browse_events(p_term => 'DOM Medical Grand Rounds')), 'Hidden events are left out of the feed';
+end;
+$$;
+rollback;
+
+-- Test: "vintage" alone is not a market.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, start_time, category) values (school, 'Vintage Tunes, Modern Gal', '2099-12-10T20:00:00Z', 'music') returning categories into cats;
+  assert not ('market' = any(cats)), 'Vintage concert is not a fest: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Vintage Market Pop-Up', '2099-12-11T20:00:00Z', 'other') returning categories into cats;
+  assert 'market' = any(cats), 'Vintage market is a fest: ' || cats::text;
 end;
 $$;
 rollback;

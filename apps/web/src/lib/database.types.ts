@@ -153,13 +153,16 @@ export type Database = {
           created_by: string | null
           dedupe_key: string | null
           description: string | null
+          description_zh: string | null
           end_time: string | null
           fee_text: string | null
           id: string
           is_all_day: boolean
           is_cancelled: boolean
           is_free: boolean
+          is_hidden: boolean
           location: string | null
+          location_zh: string | null
           location_url: string | null
           more_info_url: string | null
           neighborhood: string | null
@@ -173,6 +176,7 @@ export type Database = {
           status: Database["public"]["Enums"]["event_status"]
           tags: string[]
           title: string
+          title_zh: string | null
           updated_at: string
         }
         Insert: {
@@ -184,13 +188,16 @@ export type Database = {
           created_by?: string | null
           dedupe_key?: string | null
           description?: string | null
+          description_zh?: string | null
           end_time?: string | null
           fee_text?: string | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean
           is_free?: boolean
+          is_hidden?: boolean
           location?: string | null
+          location_zh?: string | null
           location_url?: string | null
           more_info_url?: string | null
           neighborhood?: string | null
@@ -204,6 +211,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["event_status"]
           tags?: string[]
           title: string
+          title_zh?: string | null
           updated_at?: string
         }
         Update: {
@@ -215,13 +223,16 @@ export type Database = {
           created_by?: string | null
           dedupe_key?: string | null
           description?: string | null
+          description_zh?: string | null
           end_time?: string | null
           fee_text?: string | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean
           is_free?: boolean
+          is_hidden?: boolean
           location?: string | null
+          location_zh?: string | null
           location_url?: string | null
           more_info_url?: string | null
           neighborhood?: string | null
@@ -235,6 +246,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["event_status"]
           tags?: string[]
           title?: string
+          title_zh?: string | null
           updated_at?: string
         }
         Relationships: [

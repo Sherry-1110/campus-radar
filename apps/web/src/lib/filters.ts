@@ -54,6 +54,8 @@ export interface EventFilters {
   time: TimeValue[]
   /** YYYY-MM-DD, used when `time` includes "custom". */
   date: string | null
+  /** YYYY-MM-DD, the last day of a custom range; null for a single day. */
+  dateEnd: string | null
   categories: CategoryValue[]
   regions: RegionValue[]
   /** Only show free events (a restriction on top of the other filters). */
@@ -65,6 +67,7 @@ export const DEFAULT_FILTERS: EventFilters = {
   scopes: ALL_SCOPES,
   time: ['next7'],
   date: null,
+  dateEnd: null,
   categories: ALL_CATEGORIES,
   regions: ALL_REGIONS,
   freeOnly: false,
@@ -103,6 +106,7 @@ export function parseFilters(params: URLSearchParams): EventFilters {
     scopes: parseList(params.get('from'), ALL_SCOPES),
     time: parseList(params.get('time'), ALL_TIMES, DEFAULT_FILTERS.time),
     date: parseDateParam(params.get('date')),
+    dateEnd: parseDateParam(params.get('until')),
     categories: parseList(params.get('cat'), ALL_CATEGORIES, params.get('q')?.trim() ? ALL_CATEGORIES : DEFAULT_FILTERS.categories),
     regions: parseList(params.get('loc'), ALL_REGIONS),
     freeOnly: params.get('free') === '1',
@@ -119,6 +123,7 @@ export function writeFilters(filters: EventFilters): URLSearchParams {
   set('from', serializeList(filters.scopes, ALL_SCOPES))
   set('time', serializeList(filters.time, ALL_TIMES, DEFAULT_FILTERS.time))
   set('date', filters.time.includes('custom') ? filters.date : null)
+  set('until', filters.time.includes('custom') && filters.date && filters.dateEnd && filters.dateEnd > filters.date ? filters.dateEnd : null)
   set('cat', serializeList(filters.categories, ALL_CATEGORIES, filters.q.trim() ? ALL_CATEGORIES : DEFAULT_FILTERS.categories))
   set('loc', serializeList(filters.regions, ALL_REGIONS))
   set('free', filters.freeOnly ? '1' : null)
@@ -162,7 +167,7 @@ export interface DateRange {
  * Time ranges to match, in Chicago time. Events before the start of today are
  * never shown. Overlapping presets (today ⊂ this week ⊂ this month) are merged.
  */
-export function timeRanges(filters: Pick<EventFilters, 'time' | 'date'>, now: Date): DateRange[] {
+export function timeRanges(filters: Pick<EventFilters, 'time' | 'date'> & { dateEnd?: string | null }, now: Date): DateRange[] {
   const today = startOfChicagoDay(now)
   if (isAll(filters.time, ALL_TIMES)) return [{ from: today, to: null }]
 
@@ -187,7 +192,10 @@ export function timeRanges(filters: Pick<EventFilters, 'time' | 'date'>, now: Da
   if (filters.time.includes('custom') && filters.date) {
     const [y, m, d] = filters.date.split('-').map(Number)
     const from = chicagoMidnight(y, m, d)
-    const to = chicagoMidnight(y, m, d + 1)
+    // A range runs through its last day; a single date covers just that day.
+    const last = filters.dateEnd && filters.dateEnd > filters.date ? filters.dateEnd : filters.date
+    const [ly, lm, ld] = last.split('-').map(Number)
+    const to = chicagoMidnight(ly, lm, ld + 1)
     if (to > today) ranges.push({ from: from > today ? from : today, to })
   }
 

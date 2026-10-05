@@ -3,14 +3,14 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { EventDetail } from '@/components/EventDetail'
 import { buttonPrimary, buttonSecondary, StateMessage } from '@/components/StateMessage'
 import { useEvent } from '@/lib/events'
-import { useLang } from '@/lib/i18n'
+import { localized, useLang } from '@/lib/i18n'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function EventDetailPage() {
   const { id } = useParams()
-  const { t } = useLang()
+  const { lang, t } = useLang()
   const query = useEvent(id)
-  useDocumentTitle(query.data?.title)
+  useDocumentTitle(query.data && localized(lang, query.data.title, query.data.title_zh))
 
   const navigate = useNavigate()
   const location = useLocation()

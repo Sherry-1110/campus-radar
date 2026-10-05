@@ -8,13 +8,16 @@ import { downloadIcs, googleCalendarUrl } from '@/lib/calendar'
 import { chicagoDateString, formatDateRange, formatWhenLong } from '@/lib/dates'
 import { cardFee } from '@/lib/fee'
 import { useSeriesDates, type EventRow } from '@/lib/events'
-import { useLang } from '@/lib/i18n'
+import { localized, useLang } from '@/lib/i18n'
 import { eventPageUrl, googleMapsUrl } from '@/lib/maps'
 const externalLink = 'inline-flex items-center gap-1 font-semibold text-brand-700 underline underline-offset-2'
 const rowIcon = 'mt-0.5 text-brand-600'
 
 export function EventDetail({ event }: { event: EventRow }) {
-  const { t } = useLang()
+  const { lang, t } = useLang()
+  const title = localized(lang, event.title, event.title_zh)
+  const location = localized(lang, event.location ?? '', event.location_zh)
+  const description = localized(lang, event.description ?? '', event.description_zh)
   const series = useSeriesDates(event.series_id)
   const dates = [...(series.data?.some(date => date.id === event.id) ? series.data : [event, ...(series.data ?? [])])]
     .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -62,7 +65,7 @@ export function EventDetail({ event }: { event: EventRow }) {
   async function shareLink(menu: HTMLDetailsElement | null) {
     if (menu) menu.open = false
     try {
-      await navigator.share({ title: event.title, url: pageUrl })
+      await navigator.share({ title, url: pageUrl })
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) await copyLink()
     }
@@ -73,8 +76,8 @@ export function EventDetail({ event }: { event: EventRow }) {
       <div className="lg:sticky lg:top-6 lg:self-start">
         <div className="overflow-hidden rounded-3xl border border-line bg-brand-100 shadow-card">
           <div className="relative mx-auto w-full">
-            <Poster natural src={event.cover_image_url} title={event.title} category={event.category} />
-            <div className="absolute right-3 top-3"><SaveButton id={event.id} title={event.title} label /></div>
+            <Poster natural src={event.cover_image_url} title={title} category={event.category} />
+            <div className="absolute right-3 top-3"><SaveButton id={event.id} title={title} label /></div>
           </div>
         </div>
       </div>
@@ -87,7 +90,7 @@ export function EventDetail({ event }: { event: EventRow }) {
         )}
         <header className="flex flex-col gap-3">
           <div>
-            <h1 className="inline text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{event.title}</h1>
+            <h1 className="inline text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl">{title}</h1>
             {eventPage && (
               <a href={eventPage} target="_blank" rel="noopener noreferrer" className={`${externalLink} ml-3 align-middle text-sm`}>
                 {t('View source')}
@@ -117,7 +120,7 @@ export function EventDetail({ event }: { event: EventRow }) {
                 <span className="sr-only">{t('Where')}</span>
               </dt>
               <dd className="font-semibold">
-                {event.location}
+                {location}
                 {mapUrl && (
                   <a href={mapUrl} target="_blank" rel="noopener noreferrer" className={`${externalLink} ml-2 align-baseline text-sm`}>
                     {t('Maps')}
@@ -213,10 +216,10 @@ export function EventDetail({ event }: { event: EventRow }) {
           </fieldset>
         )}
 
-        {event.description && (
+        {description && (
           <section aria-labelledby="about-heading">
             <h2 id="about-heading" className="mb-2 text-xl font-bold">{t('About this event')}</h2>
-            <p className="max-w-prose whitespace-pre-line leading-relaxed text-ink">{event.description}</p>
+            <p className="max-w-prose whitespace-pre-line leading-relaxed text-ink">{description}</p>
           </section>
         )}
       </div>
