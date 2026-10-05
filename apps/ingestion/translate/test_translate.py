@@ -1,15 +1,24 @@
 import unittest
-from translate import cjk_punctuation, split_keep_links
+from translate import deepl_url, pending_texts, within_budget
 
 
 class Helpers(unittest.TestCase):
-    def test_links_are_kept_apart_from_text(self):
-        parts = split_keep_links('Join us at https://zoom.us/j/123 or mail a@b.org today')
-        self.assertEqual([p for p, link in parts if link], ['https://zoom.us/j/123', 'a@b.org'])
+    def test_free_keys_use_the_free_host(self):
+        self.assertEqual(deepl_url('abc:fx'), 'https://api-free.deepl.com/v2')
+        self.assertEqual(deepl_url('abc'), 'https://api.deepl.com/v2')
 
-    def test_full_width_punctuation_only_next_to_chinese(self):
-        self.assertEqual(cjk_punctuation('葡萄牙的味道, 芝加哥.'), '葡萄牙的味道，芝加哥。')
-        self.assertEqual(cjk_punctuation('Room 12, Floor 3.'), 'Room 12, Floor 3.')
+    def test_each_missing_title_and_location_is_asked_for_once(self):
+        rows = [
+            {'title': 'Jazz Night', 'title_zh': None, 'location': 'Galvin Recital Hall', 'location_zh': None},
+            {'title': 'Jazz Night', 'title_zh': None, 'location': 'Galvin Recital Hall', 'location_zh': None},
+            {'title': 'Art Fair', 'title_zh': '艺术博览会', 'location': None, 'location_zh': None},
+            {'title': '2026', 'title_zh': None, 'location': '1999 Campus Dr', 'location_zh': '1999 校园路'},
+        ]
+        self.assertEqual(pending_texts(rows), (['Jazz Night'], ['Galvin Recital Hall']))
+
+    def test_budget_keeps_order_and_stops_at_the_first_text_that_does_not_fit(self):
+        self.assertEqual(within_budget(['aaaa', 'bb', 'cccc', 'd'], 7), ['aaaa', 'bb'])
+        self.assertEqual(within_budget(['aaaa'], 0), [])
 
 
 if __name__ == '__main__':

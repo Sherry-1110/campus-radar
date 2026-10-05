@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Fill title_zh / location_zh / description_zh for upcoming events with Argos Translate,
-a free offline English-to-Chinese model, so the site can show a fully Chinese page.
+"""Fill title_zh and location_zh for upcoming events with DeepL's free API, so event lists read in Chinese.
 
-  SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... python3 translate.py --days 7 [--dry-run]
+  SUPABASE_URL=... SUPABASE_SECRET_KEY=... DEEPL_API_KEY=... python3 translate.py [--days 90] [--max-chars 100000] [--dry-run]
 
-Only events that still lack a translation are touched. Rows that share the same title,
-location and description (every date of a recurring event) are translated once and updated together.
+Each distinct title or location is translated once and saved to every event that shares it (all dates of a
+recurring event, every event at the same venue). DeepL Free allows 500,000 characters a month: a run stops at
+--max-chars and never spends the last 20,000 characters of the account's monthly quota.
 """
 import argparse
 import datetime
@@ -16,112 +16,110 @@ import sys
 import urllib.parse
 import urllib.request
 
-URL_OR_EMAIL = re.compile(r'(https?://\S+|www\.\S+|\S+@\S+\.\S+)')
-CJK = '一-鿿'
+RESERVE = 20_000  # characters left untouched at the end of the month
+BATCH = 50  # DeepL takes up to 50 texts per request
 
 
-def split_keep_links(text):
-    """Text and links alternately; links are never translated."""
-    return [(part, bool(URL_OR_EMAIL.fullmatch(part))) for part in URL_OR_EMAIL.split(text) if part]
+def deepl_url(key):
+    """Free-plan keys end in ':fx' and use their own host."""
+    return 'https://api-free.deepl.com/v2' if key.endswith(':fx') else 'https://api.deepl.com/v2'
 
 
-def cjk_punctuation(text):
-    """The model emits ASCII punctuation; use the full-width forms next to Chinese characters."""
-    text = re.sub(f'(?<=[{CJK}]),\\s*', '，', text)
-    text = re.sub(f'(?<=[{CJK}])\\.(?=\\s|$)', '。', text)
-    text = re.sub(f'(?<=[{CJK}]);\\s*', '；', text)
-    text = re.sub(f'(?<=[{CJK}]):\\s*', '：', text)
-    text = re.sub(f'(?<=[{CJK}])\\?', '？', text)
-    text = re.sub(f'(?<=[{CJK}])!', '！', text)
-    text = re.sub(f'(?<=[{CJK}])\\s+(?=[{CJK}])', '', text)
-    return text
+def pending_texts(rows):
+    """Distinct titles and locations that still lack Chinese, nearest events first."""
+    titles, locations = {}, {}
+    for row in rows:
+        if row['title_zh'] is None and re.search('[A-Za-z]', row['title']):
+            titles.setdefault(row['title'], None)
+        if row['location'] and row['location_zh'] is None and re.search('[A-Za-z]', row['location']):
+            locations.setdefault(row['location'], None)
+    return list(titles), list(locations)
 
 
-def make_translator():
-    import argostranslate.package as package
-    import argostranslate.translate as translate
-    installed = {(lang.code, t.to_lang.code) for lang in translate.get_installed_languages() for t in lang.translations_from}
-    if not any(a == 'en' and b.startswith('zh') for a, b in installed):
-        package.update_package_index()
-        wanted = next(p for p in package.get_available_packages() if p.from_code == 'en' and p.to_code.startswith('zh'))
-        package.install_from_path(wanted.download())
-    cache = {}
-
-    def run(text):
-        text = text.strip()
-        if not text or not re.search('[A-Za-z]', text):
-            return text
-        if text not in cache:
-            cache[text] = translate.translate(text, 'en', 'zh')
-        return cache[text]
-    return run
+def within_budget(texts, budget):
+    """The texts, in order, that fit in the character budget."""
+    chosen = []
+    for text in texts:
+        if len(text) > budget:
+            break
+        chosen.append(text)
+        budget -= len(text)
+    return chosen
 
 
-def translate_text(run, text):
-    """Line by line, with links left exactly as they were."""
-    lines = []
-    for line in text.split('\n'):
-        out = ''.join(part if is_link else run(part) if part.strip() else part for part, is_link in split_keep_links(line))
-        lines.append(cjk_punctuation(out))
-    return '\n'.join(lines)
+def request(url, headers, body=None, method=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method, headers={**headers, **({'Content-Type': 'application/json'} if data else {})})
+    with urllib.request.urlopen(req, timeout=60) as response:
+        raw = response.read()
+        return json.loads(raw) if raw else None
 
 
-class Api:
+class DeepL:
+    def __init__(self, key):
+        self.url, self.headers = deepl_url(key), {'Authorization': f'DeepL-Auth-Key {key}'}
+
+    def remaining(self):
+        usage = request(f'{self.url}/usage', self.headers)
+        return usage['character_limit'] - usage['character_count']
+
+    def translate(self, texts):
+        out = []
+        for i in range(0, len(texts), BATCH):
+            body = {'text': texts[i:i + BATCH], 'source_lang': 'EN', 'target_lang': 'ZH-HANS'}
+            out += [t['text'] for t in request(f'{self.url}/translate', self.headers, body)['translations']]
+        return out
+
+
+class Events:
     def __init__(self, url, key):
         self.url, self.headers = url.rstrip('/') + '/rest/v1/events', {'apikey': key, 'Authorization': 'Bearer ' + key}
 
-    def call(self, query, method='GET', body=None):
-        headers = {**self.headers, **({'Content-Type': 'application/json', 'Prefer': 'return=minimal'} if body else {})}
-        request = urllib.request.Request(f'{self.url}?{query}', method=method, headers=headers,
-                                         data=json.dumps(body).encode() if body is not None else None)
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return json.load(response) if method == 'GET' else None
-
-    def pending(self, days):
+    def upcoming(self, days):
         now = datetime.datetime.now(datetime.timezone.utc)
         start, end = now - datetime.timedelta(hours=6), now + datetime.timedelta(days=days)
         rows, offset = [], 0
         while True:
             query = urllib.parse.urlencode({
-                'select': 'title,location,description,title_zh,location_zh,description_zh', 'status': 'eq.published',
+                'select': 'title,location,title_zh,location_zh', 'status': 'eq.published', 'is_hidden': 'eq.false',
+                'or': '(title_zh.is.null,location_zh.is.null)',
                 'and': f'(start_time.gte.{start:%Y-%m-%dT%H:%M:%SZ},start_time.lt.{end:%Y-%m-%dT%H:%M:%SZ})',
                 'order': 'start_time', 'limit': 1000, 'offset': offset})
-            page = self.call(query)
+            page = request(f'{self.url}?{query}', self.headers)
             rows += page
             if len(page) < 1000:
-                return [r for r in rows if r['title_zh'] is None or (r['location'] and r['location_zh'] is None)
-                        or (r['description'] and r['description_zh'] is None)]
+                return rows
             offset += 1000
 
-    def save(self, row, zh):
-        def match(column):
-            return f'{column}=is.null' if row[column] is None else f'{column}=eq.{urllib.parse.quote(row[column], safe="")}'
-        self.call('&'.join(match(c) for c in ('title', 'location', 'description')), 'PATCH', zh)
+    def save(self, column, text, chinese):
+        """Every event with this exact English text that has no Chinese for it yet."""
+        query = f'{column}=eq.{urllib.parse.quote(text, safe="")}&{column}_zh=is.null'
+        request(f'{self.url}?{query}', {**self.headers, 'Prefer': 'return=minimal'}, {f'{column}_zh': chinese}, 'PATCH')
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--days', type=int, default=7)
+    parser.add_argument('--days', type=int, default=90)
+    parser.add_argument('--max-chars', type=int, default=100_000)
     parser.add_argument('--dry-run', action='store_true', help='print translations instead of saving them')
     args = parser.parse_args()
-    api = Api(os.environ['SUPABASE_URL'], os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ['SUPABASE_SECRET_KEY'])
-    unique = {}
-    for row in api.pending(args.days):
-        unique.setdefault((row['title'], row['location'], row['description']), row)
-    print(f'{len(unique)} events to translate', flush=True)
-    run = make_translator()
-    for i, row in enumerate(unique.values(), 1):
-        zh = {'title_zh': translate_text(run, row['title'])}
-        if row['location']:
-            zh['location_zh'] = translate_text(run, row['location'])
-        if row['description']:
-            zh['description_zh'] = translate_text(run, row['description'])
-        if args.dry_run:
-            print(json.dumps(zh, ensure_ascii=False))
-        else:
-            api.save(row, zh)
-        if i % 25 == 0:
-            print(f'{i}/{len(unique)}', flush=True)
+    deepl = DeepL(os.environ['DEEPL_API_KEY'])
+    events = Events(os.environ['SUPABASE_URL'], os.environ.get('SUPABASE_SECRET_KEY') or os.environ['SUPABASE_SERVICE_ROLE_KEY'])
+
+    titles, locations = pending_texts(events.upcoming(args.days))
+    budget = min(args.max_chars, deepl.remaining() - RESERVE)
+    print(f'{len(titles)} titles and {len(locations)} locations need Chinese; budget {max(budget, 0)} characters', flush=True)
+    for column, texts in (('title', titles), ('location', locations)):
+        chosen = within_budget(texts, budget)
+        budget -= sum(map(len, chosen))
+        if not chosen:
+            continue
+        for text, chinese in zip(chosen, deepl.translate(chosen)):
+            if args.dry_run:
+                print(json.dumps({column: text, f'{column}_zh': chinese}, ensure_ascii=False))
+            else:
+                events.save(column, text, chinese)
+        print(f'{column}: translated {len(chosen)} of {len(texts)}', flush=True)
     print('done')
 
 
