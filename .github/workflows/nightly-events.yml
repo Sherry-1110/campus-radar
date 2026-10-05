@@ -24,7 +24,7 @@ on:
       source:
         description: 'Source to run (scheduled runs always run all sources)'
         type: choice
-        options: [all, planitpurple, bienen, choose-chicago, garage, nusports]
+        options: [all, planitpurple, bienen, choose-chicago, chicago-roundups, garage, nusports]
         default: all
 
 permissions:
@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source: ${{ fromJSON(inputs.source && inputs.source != 'all' && format('["{0}"]', inputs.source) || '["planitpurple","bienen","choose-chicago","garage","nusports"]') }}
+        source: ${{ fromJSON(inputs.source && inputs.source != 'all' && format('["{0}"]', inputs.source) || '["planitpurple","bienen","choose-chicago","chicago-roundups","garage","nusports"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

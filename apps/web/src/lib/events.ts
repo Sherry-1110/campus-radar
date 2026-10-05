@@ -141,12 +141,19 @@ export function useFeaturedEvents() {
     queryKey: ['featured-events'], staleTime: 10 * 60_000,
     queryFn: async ({ signal }) => {
       const from = startOfChicagoDay(new Date())
-      const { data, error } = await supabase.from('events').select(`${LIST_COLUMNS},description`)
+      const candidates = () => supabase.from('events').select(`${LIST_COLUMNS},description,featured_rank`)
         .eq('status', 'published').eq('is_cancelled', false).eq('is_hidden', false).not('cover_image_url', 'is', null)
-        .gte('start_time', from.toISOString()).lt('start_time', new Date(from.getTime() + 14 * 86_400_000).toISOString())
-        .order('start_time').limit(300).abortSignal(signal).returns<FeaturedCandidate[]>()
-      if (error) throw error
-      return pickFeatured(data)
+      const [upcoming, picked] = await Promise.all([
+        candidates().gte('start_time', from.toISOString()).lt('start_time', new Date(from.getTime() + 14 * 86_400_000).toISOString())
+          .order('start_time').limit(300).abortSignal(signal).returns<FeaturedCandidate[]>(),
+        // Hand-picked events, including ones already under way.
+        candidates().not('featured_rank', 'is', null).or(`start_time.gte.${from.toISOString()},end_time.gte.${new Date().toISOString()}`)
+          .order('start_time').limit(100).abortSignal(signal).returns<FeaturedCandidate[]>(),
+      ])
+      if (upcoming.error) throw upcoming.error
+      if (picked.error) throw picked.error
+      const ids = new Set(picked.data.map(e => e.id))
+      return pickFeatured([...picked.data, ...upcoming.data.filter(e => !ids.has(e.id))])
     },
   })
 }

@@ -421,3 +421,25 @@ begin
 end;
 $$;
 rollback;
+
+-- Test: big city picks land in a group instead of "other".
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+  pick record;
+begin
+  for pick in select * from (values
+    ('Oktoberfestiversary', 'market'), ('Día de los Muertos Xicágo', 'market'), ('Chicago Fashion Week', 'arts'),
+    ('The Night of 1,000 Jack-o’-Lanterns', 'play'), ('Jack’s Pumpkin Pop-Up', 'play'),
+    ('Historic Pullman House Tour', 'play'), ('Open House Chicago', 'play')) v(title, expected)
+  loop
+    insert into public.events (school_id, title, start_time, category) values (school, pick.title, '2099-12-26T20:00:00Z', 'other') returning categories into cats;
+    assert pick.expected::public.event_category = any(cats), pick.title || ': ' || cats::text;
+  end loop;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Graduate School Open House', '2099-12-27T20:00:00Z', 'other') returning categories into cats;
+  assert not ('play' = any(cats)), 'An admissions open house is not an outing: ' || cats::text;
+end;
+$$;
+rollback;

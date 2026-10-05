@@ -156,6 +156,7 @@ export type Database = {
           description_zh: string | null
           end_time: string | null
           fee_text: string | null
+          featured_rank: number | null
           id: string
           is_all_day: boolean
           is_cancelled: boolean
@@ -191,6 +192,7 @@ export type Database = {
           description_zh?: string | null
           end_time?: string | null
           fee_text?: string | null
+          featured_rank?: number | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean
@@ -226,6 +228,7 @@ export type Database = {
           description_zh?: string | null
           end_time?: string | null
           fee_text?: string | null
+          featured_rank?: number | null
           id?: string
           is_all_day?: boolean
           is_cancelled?: boolean

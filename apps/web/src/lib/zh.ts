@@ -66,7 +66,7 @@ export const ZH: Record<string, string> = {
 
   // home
   Events: '活动',
-  'Featured events': '精选活动',
+  "This week's picks": '本周精选',
   'Previous poster': '上一张海报',
   'Next poster': '下一张海报',
   'Poster for {0}': '{0} 的海报',

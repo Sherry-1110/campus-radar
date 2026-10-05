@@ -114,3 +114,16 @@ test('a listing page lends the picture beside this event, never a site-wide imag
   const generic = '<div class="card"><h3>Karaoke</h3><img src="/images/northwestern-thumbnail.jpg"></div>'
   assert.equal(nearbyImage(generic, url, 'Karaoke Night'), null, 'site thumbnails are not event pictures')
 })
+test('a homepage named after the event is its own page, but other homepages keep their logo out',()=>{
+  const marathon={...item,data:{...item.data,title:'Bank of America Chicago Marathon',description:null}}
+  const page='<meta property="og:title" content="Your Finish Line Starts Here"><meta property="og:image" content="/hero.jpg"><main><p>Race day is October 11.</p></main>'
+  assert.equal(extractDetail(page,'https://www.chicagomarathon.com/',marathon)?.image,'https://www.chicagomarathon.com/hero.jpg')
+  assert.equal(extractDetail(page,'https://www.runningclub.org/',marathon),null)
+})
+test('long organizer pages are cut to the 5000-character description limit',async()=>{
+  const paragraphs=Array.from({length:80},(_,i)=>`<p>Paragraph ${i} about the student chamber concert program, with enough distinct words to keep number ${i}.</p>`).join('')
+  const page=`<meta property="og:title" content="${item.data.title}"><article>${paragraphs}</article>`
+  const result=await enrichSource({items:[item],warnings:[]},async url=>({url,html:page}),new Date('2026-09-20'))
+  const description=result.items[0]!.data.description!
+  assert.ok(description.length<=5000 && description.endsWith('…'), `length ${description.length}`)
+})

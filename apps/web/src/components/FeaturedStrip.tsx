@@ -3,9 +3,11 @@ import { useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router'
 import { eventGroups } from '@/lib/categories'
 import { formatWhenShort } from '@/lib/dates'
+import { isAthleticsGame } from '@/lib/eventSource'
 import { localized, useLang } from '@/lib/i18n'
 import type { EventListItem } from '@/lib/events'
 import { isMobileViewport } from '@/lib/useEventSelection'
+import { Poster } from './Poster'
 
 const AUTO_MS = 4500
 const SHRINK = 0.4 // how much smaller the outermost posters are
@@ -121,8 +123,16 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
 
   if (!items.length) return null
   return (
-    <section aria-label={t('Featured events')} className="relative overflow-hidden bg-[#0f0b1e]"
-      style={{ backgroundImage: 'radial-gradient(ellipse 55% 100% at 50% 50%, rgba(124,77,255,.35), transparent 75%)' }}>
+    <section aria-labelledby="featured-title" className="overflow-hidden bg-[#0f0b1e]"
+      style={{ backgroundImage: 'radial-gradient(ellipse 55% 100% at 50% 60%, rgba(124,77,255,.35), transparent 75%)' }}>
+      {/* A marquee-style label centred over the stage, apart from the logo's left edge. */}
+      <h2 id="featured-title" className="flex items-center justify-center gap-3 pb-3 pt-4 text-[11px] font-semibold uppercase tracking-[0.4em] text-white/70 sm:gap-5 sm:pb-4 sm:pt-5 sm:text-xs">
+        <span aria-hidden="true" className="h-px w-10 bg-gradient-to-r from-transparent to-[#b79cff]/70 sm:w-28" />
+        {/* Letter spacing trails the last letter; pull it back so the text sits centred. */}
+        <span className="-mr-[0.4em]">{t("This week's picks")}</span>
+        <span aria-hidden="true" className="h-px w-10 bg-gradient-to-l from-transparent to-[#b79cff]/70 sm:w-28" />
+      </h2>
+      <div className="relative">
       <ul ref={track} onScroll={onScroll} onPointerEnter={e => { if (e.pointerType === 'mouse') hold.current.hover = true }}
         onPointerLeave={() => { hold.current.hover = false }} onPointerDown={pause} onWheel={pause}
         onTouchStart={() => { pause(); touching.current = true }} onTouchEnd={() => { touching.current = false; settle() }} onTouchCancel={() => { touching.current = false; settle() }}
@@ -136,7 +146,9 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
                 if (isMobileViewport() && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); onSelect(event.id, e.currentTarget) }
               }}
               className="relative block aspect-[4/3] h-56 overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,.7)] ring-1 ring-white/30 sm:h-80">
-              <img src={event.cover_image_url!} alt={t('Poster for {0}', localized(lang, event.title, event.title_zh))} referrerPolicy="no-referrer" draggable={false} className="size-full object-cover" />
+              {isAthleticsGame(event)
+                ? <Poster matchup src={event.cover_image_url} title={localized(lang, event.title, event.title_zh)} category={event.category} />
+                : <img src={event.cover_image_url!} alt={t('Poster for {0}', localized(lang, event.title, event.title_zh))} referrerPolicy="no-referrer" draggable={false} className="size-full object-cover" />}
               <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/65 to-transparent px-4 pb-3 pt-16 text-white [text-shadow:0_1px_3px_rgb(0_0_0/.8)]">
                 <span className="line-clamp-2 block text-sm font-bold leading-tight sm:text-base">{localized(lang, event.title, event.title_zh)}</span>
                 <span className="line-clamp-1 mt-0.5 block text-xs text-white/80">{[eventGroups(event)[0] && t(eventGroups(event)[0]!.label), formatWhenShort(event.start_time, null, event.is_all_day)].filter(Boolean).join(' · ')}</span>
@@ -153,6 +165,7 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
           {dir < 0 ? <ChevronLeft className="size-6" aria-hidden="true" /> : <ChevronRight className="size-6" aria-hidden="true" />}
         </button>
       ))}
+      </div>
     </section>
   )
 }

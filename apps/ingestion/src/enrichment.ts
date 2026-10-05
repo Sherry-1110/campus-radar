@@ -40,7 +40,14 @@ export function image(value: unknown, base: string): string | null {
   return u && !/logo|favicon|placeholder|default[-_ ]?image|thumbnail|[-_]thumb\.|\/icons?\//i.test(new URL(u).pathname) ? u : null
 }
 
+// events.description holds at most 5000 characters; cut long organizer pages at a word.
+const fit = (s: string) => s.length<=5000 ? s : s.slice(0,4999).replace(/\s+\S*$/,'')+'…'
 const homepage = (url: string) => /^\/(?:home|index\.html?)?$/i.test(new URL(url).pathname)
+// A homepage named after the event (chicagomarathon.com for "Bank of America Chicago Marathon") is the event's own site.
+const ownSite = (url: string, title: string) => {
+  const name=new URL(url).hostname.replace(/^www\./,'').split('.')[0]!, ws=words(title).filter(w=>w.length>=4)
+  return homepage(url) && ws.length>0 && ws.filter(w=>name.includes(w)).length>=Math.min(2,ws.length)
+}
 
 /**
  * On a listing page that names this event among others, the picture in the event's own block:
@@ -114,7 +121,7 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   const titleWords=new Set(words(heading))
   const corroborated=$('article').length===1 && words(item.data.title).some(w=>w.length>=4 && !['campus','event','events','calendar'].includes(w) && titleWords.has(w))
     && body.find('p').toArray().some(el=>descriptionMatches(item.data.description||'',text($(el).html())))
-  const pageMatches=matches(item.data.title,heading)||matches(item.data.title,$('h1').first().text())||corroborated
+  const pageMatches=matches(item.data.title,heading)||matches(item.data.title,$('h1').first().text())||corroborated||ownSite(pageUrl,item.data.title)
   if(!event && !pageMatches) {
     // Not this event's own page, but perhaps a listing that shows it: borrow its picture only if it has none.
     const nearby=item.data.cover_image_url||homepage(pageUrl)?null:nearbyImage(html,pageUrl,item.data.title)
@@ -148,7 +155,7 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
       && ![...tokens].some(w=>/^20\d\d$/.test(w)&&w!==year)
       && titleTokens.filter(w=>tokens.has(w)).length>=Math.min(2,titleTokens.length) ? url : null
   }).find(Boolean)
-  const poster=(pageMatches?visiblePoster:null)||image(event?.image,pageUrl)||(pageMatches&&!homepage(pageUrl)?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
+  const poster=(pageMatches?visiblePoster:null)||image(event?.image,pageUrl)||(pageMatches&&(!homepage(pageUrl)||ownSite(pageUrl,item.data.title))?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
     // The page is about this event but offers no specific share image: use the picture beside its title.
     ||(item.data.cover_image_url?null:nearbyImage(html,pageUrl,item.data.title))
   const next=event?[event.url,...(Array.isArray(event.sameAs)?event.sameAs:[event.sameAs])].map(v=>link(v,pageUrl)).filter((v):v is string=>Boolean(v&&v!==pageUrl)):[]
@@ -226,7 +233,7 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
           }).join('\n\n')
           if(extra.length>=60){
             // Keep calendar restrictions, append only new organizer paragraphs.
-            item.data.description=[item.data.description,`Organizer details:\n${extra}`].filter(Boolean).join('\n\n')
+            item.data.description=fit([item.data.description,`Organizer details:\n${extra.replace(/<img\b[^>]*>/g,'')}`].filter(Boolean).join('\n\n'))
             fields.add('description')
           }
           if(extracted.image){item.data.cover_image_url=extracted.image;fields.add('cover_image_url')}
