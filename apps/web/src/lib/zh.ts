@@ -133,6 +133,7 @@ export const ZH: Record<string, string> = {
   '{0} (Central Time)': '{0}(芝加哥时间)',
   Maps: '地图',
   'Add to Google Calendar': '添加到谷歌日历',
+  'Google Calendar': '谷歌日历',
   'Download cancellation (.ics)': '下载取消通知 (.ics)',
   'Download .ics': '下载 .ics',
   Share: '分享',

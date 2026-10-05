@@ -5,6 +5,9 @@ import { isAthleticsGame } from '@/lib/eventSource'
 import { Poster } from './Poster'
 import { SaveButton } from './SaveButton'
 import { buttonPrimary, buttonSecondary } from './StateMessage'
+
+// On phones the action buttons share one row: icon above the label, a little smaller.
+const stacked = 'max-sm:h-[4.25rem] max-sm:w-full max-sm:flex-col max-sm:gap-1 max-sm:px-2 max-sm:py-2 max-sm:text-xs max-sm:leading-tight max-sm:text-center'
 import { downloadIcs, googleCalendarUrl } from '@/lib/calendar'
 import { chicagoDateString, formatDateRange, formatWhenLong } from '@/lib/dates'
 import { cardFee } from '@/lib/fee'
@@ -29,6 +32,8 @@ export function EventDetail({ event }: { event: EventRow }) {
   const timeText = multi && !sameTime ? null : when.time
   const dateText = (multi && formatDateRange(dates[0].start_time, dates.at(-1)!.start_time)) || when.date
   const pageUrl = `${window.location.origin}/events/${event.id}`
+  // Phones show the short name so the three action buttons fit in one row.
+  const googleLabel = <><span className="sm:hidden">{t('Google Calendar')}</span><span className="max-sm:hidden">{t('Add to Google Calendar')}</span></>
   const [copied, setCopied] = useState(false)
 
   // Which calendar button the user pressed on a multi-date event, and the dates they chose.
@@ -143,21 +148,8 @@ export function EventDetail({ event }: { event: EventRow }) {
           )}
         </dl>
 
-        <div className="flex flex-wrap gap-3">
-          {!event.is_cancelled && (multi
-            ? <button type="button" onClick={() => setPick('google')} className={buttonPrimary}>
-                <CalendarPlus className="mr-2 size-4" aria-hidden="true" />
-                {t('Add to Google Calendar')}
-              </button>
-            : <a href={googleCalendarUrl(event, pageUrl)} target="_blank" rel="noopener noreferrer" className={buttonPrimary}>
-                <CalendarPlus className="mr-2 size-4" aria-hidden="true" />
-                {t('Add to Google Calendar')}
-                <span className="sr-only">{t('(opens in a new tab)')}</span>
-              </a>)}
-          <button type="button" onClick={() => multi ? setPick('ics') : downloadIcs(event, pageUrl)} className={buttonSecondary}>
-            <Download className="size-4" aria-hidden="true" />
-            {event.is_cancelled ? t('Download cancellation (.ics)') : t('Download .ics')}
-          </button>
+        {/* Phones: three equal buttons in one row, icon above a short label. */}
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-3">
           <details className="relative" onToggle={e => {
             const menu = e.currentTarget
             if (!menu.open) return setCopied(false)
@@ -166,7 +158,7 @@ export function EventDetail({ event }: { event: EventRow }) {
             panel.style.left = '0'; panel.style.right = 'auto'
             if (panel.getBoundingClientRect().right > innerWidth - 8) { panel.style.left = 'auto'; panel.style.right = '0' }
           }}>
-            <summary className={`${buttonSecondary} list-none [&::-webkit-details-marker]:hidden`}>
+            <summary className={`${buttonPrimary} ${stacked} cursor-pointer gap-2 list-none [&::-webkit-details-marker]:hidden`}>
               <Share2 className="size-4" aria-hidden="true" />
               {t('Share')}
             </summary>
@@ -183,6 +175,20 @@ export function EventDetail({ event }: { event: EventRow }) {
               )}
             </div>
           </details>
+          {!event.is_cancelled && (multi
+            ? <button type="button" onClick={() => setPick('google')} className={`${buttonSecondary} ${stacked}`}>
+                <CalendarPlus className="size-4" aria-hidden="true" />
+                {googleLabel}
+              </button>
+            : <a href={googleCalendarUrl(event, pageUrl)} target="_blank" rel="noopener noreferrer" className={`${buttonSecondary} ${stacked}`}>
+                <CalendarPlus className="size-4" aria-hidden="true" />
+                {googleLabel}
+                <span className="sr-only">{t('(opens in a new tab)')}</span>
+              </a>)}
+          <button type="button" onClick={() => multi ? setPick('ics') : downloadIcs(event, pageUrl)} className={`${buttonSecondary} ${stacked}`}>
+            <Download className="size-4" aria-hidden="true" />
+            {event.is_cancelled ? t('Download cancellation (.ics)') : t('Download .ics')}
+          </button>
         </div>
 
         {multi && pick && (
