@@ -9,6 +9,7 @@ test('Jev uses the frontend taxonomy, ranks multiple labels, and rejects unsafe 
   assert.deepEqual(interpretCategories(response({ music: .99, fests: .95 })), ['music', 'market'])
   assert.deepEqual(interpretCategories(response({})), ['other'])
   assert.equal(interpretCategories(response({ music: .55 })), null)
+  assert.deepEqual(interpretCategories(response({ music: .99, activities: .5 })), ['music'], 'An uncertain secondary label must not discard a clear primary tag')
   assert.throws(() => interpretCategories({ answers: {} }))
   assert.throws(() => interpretCategories(response({ music: 2 })))
   let calls = 0

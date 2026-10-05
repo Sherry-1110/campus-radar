@@ -11,7 +11,7 @@ const definitions: Record<CategoryGroup, string> = {
   music: 'Attending live music, a concert, recital, opera, musical, or a music-focused DJ set. Incidental background music does not count. Talks about music do not count.',
   arts: 'Experiencing visual art, exhibitions, museums, theater, comedy, film, dance performances, poetry, or cultural performances. An academic talk about art does not count. Music alone does not count.',
   sports: 'Watching or entering a sports game, match, race, or competition. Exclude gym classes, workouts, yoga, wellness sessions, talks, and recreational outings without a competition.',
-  activities: 'Participating in recreation: games, trivia, tours, cruises, attractions, hands-on crafts, tastings, cooking, hiking or similar fun things to do. Exclude academic/professional workshops, workouts, passive performances, and routine meals.',
+  activities: 'Participating in recreation: games, trivia, tours, cruises, attractions, hands-on crafts, tastings, cooking, hiking or similar fun things to do. Exclude academic/professional workshops, workouts, routine meals, and events solely watching sports, listening to music, viewing exhibits, or socializing at parties without a separate hands-on activity.',
   fests: 'A festival, street fair, market, bazaar, parade, or multi-vendor community celebration. Exclude career fairs, research conferences, ordinary parties, and a single concert without a festival.',
   parties: 'A party, social mixer, dance night, rave, gala, bar crawl, happy hour or nightlife gathering whose purpose is socializing. Exclude academic/networking receptions, religious services, sports opponents named Ball State, and events merely mentioning social issues.',
 }
@@ -29,10 +29,10 @@ export function interpretCategories(raw: unknown): DbCategory[] | null {
     if (a.type !== 'noul' || typeof a.noul !== 'number' || !Number.isFinite(a.noul) || a.noul < 0 || a.noul > 1) throw new Error('Invalid Jev category answer')
     return { category: g.members[0], score: a.noul }
   })
-  // Ambiguous classifications leave the existing rules in place and retry next run.
-  if (scores.some(s => s.score > .2 && s.score < .8)) return null
   const selected = scores.filter(s => s.score >= .8).sort((a, b) => b.score - a.score).slice(0, 3).map(s => s.category)
-  return selected.length ? selected : ['other']
+  // A weak secondary label must not veto an independently confident tag.
+  if (selected.length) return selected
+  return scores.some(s => s.score > .2) ? null : ['other']
 }
 export async function classifyEvent(event: EventText, key: string, transport: typeof fetch = fetch) {
   for (let attempt = 0; ; attempt++) {

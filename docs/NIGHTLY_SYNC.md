@@ -375,8 +375,8 @@ classifier are preserved during backfill.
 
 The job checks seven live examples before writing, processes up to 5,000 distinct
 texts with six workers and a 20-minute budget, and records totals in the Actions
-summary. Each of the six Noul answers must be <=0.2 or >=0.8; ambiguous results
-retain existing rule-based tags and retry next time. Attempt timestamps rotate
+summary. Noul answers >=0.8 become tags. If none qualifies, all six must be <=0.2
+to use the neutral Event tag; otherwise existing rule-based tags remain and retry next time. Attempt timestamps rotate
 retries behind untried text; paginated reads avoid the API row cap. API/database failures are
 reported separately and never roll back source ingestion. No API key reaches the
 frontend. Changes to the model, prompts or taxonomy require an evaluation and a
