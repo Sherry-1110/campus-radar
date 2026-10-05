@@ -104,3 +104,12 @@ test('bounded semantic work visits different organizer pages before repeated occ
   await enrichSource({items,warnings:[]},async url=>({url,html:page}),new Date('2026-09-20'),{mode:'apply',select:async(_html,url)=>{visited.push(url);await setImmediate();return {detail:null,audit:{outcome:'uncertain',model:'jev-1.13.0',page_hash:'test'}}}})
   assert.equal(new Set(visited.slice(0,4)).size,2)
 })
+
+test('a listing page the model rejects still lends the picture beside the event title',async()=>{
+  const listing={...item,related_url:'https://library.org/exhibits',data:{...item.data,title:'Break Right Through That Line: Football at Northwestern',description:null,cover_image_url:null}}
+  const html='<meta property="og:title" content="Exhibits"><main><h2>Break Right Through That Line</h2><h3>Football at Northwestern</h3><p><img src="/football.webp"></p><p>Photographs and uniforms.</p><h2>Other Exhibit</h2><p><img src="/other.webp"></p></main>'
+  const result=await enrichSource({items:[listing],warnings:[]},async url=>({url,html}),new Date('2026-09-20'),{mode:'apply',select:async()=>({detail:null,audit:{outcome:'uncertain',model:'jev-1.13.0',page_hash:'test'}})})
+  assert.equal(result.items[0].data.cover_image_url,'https://library.org/football.webp')
+  assert.equal(result.items[0].data.source_url,listing.data.source_url,'A listing is not the event page')
+  assert.equal(result.items[0].data.description,null)
+})

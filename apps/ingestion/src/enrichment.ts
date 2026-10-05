@@ -239,9 +239,11 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
             if(semantic.mode==='apply') {
               if(decision.audit.outcome==='failed'){failed=true;details.failed++}
               if(decision.audit.outcome==='deferred'){failed=true;details.skipped++}
-              // A model rejection/uncertainty never falls through to weaker matching.
+              // A model rejection/uncertainty never falls through to weaker page matching.
               // On service/budget failure the existing rules remain available.
-              if(!['failed','deferred'].includes(decision.audit.outcome)) extracted=decision.detail
+              // A rejected listing page (a library's exhibits, a venue's program list) may still show the event's
+              // picture beside its exact title: keep only that image, never the page's text or link.
+              if(!['failed','deferred'].includes(decision.audit.outcome)) extracted=decision.detail ?? (extracted?.listing ? extracted : null)
             }
           }
           if(!extracted) break

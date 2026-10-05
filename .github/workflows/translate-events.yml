@@ -1,9 +1,15 @@
 name: Translate events to Chinese
 
-# Fills Chinese titles and locations with DeepL Free after the nightly event sync; also runs by hand.
+# Fills Chinese titles and locations with DeepL Free as soon as the nightly event sync finishes; also runs by hand.
 on:
+  # Right after every event sync, even a partly failed one: whatever was imported gets translated.
+  workflow_run:
+    workflows: [Nightly event sync]
+    types: [completed]
+    branches: [main]
   schedule:
-    # An hour and a half after the nightly sync (08:17 UTC).
+    # Fallback if the sync never reports back: an hour and a half after it starts (08:17 UTC).
+    # A run with nothing left to translate costs no DeepL characters.
     - cron: '45 9 * * *'
   workflow_dispatch:
     inputs:
