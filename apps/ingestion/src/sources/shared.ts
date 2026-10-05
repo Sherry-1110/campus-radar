@@ -64,8 +64,9 @@ export function cancelled(title: string, body = ''): boolean {
 export function category(value: string): Category {
   if (/music|concert|recital|orchestra/i.test(value)) return 'music'
   if (/arts|theat|film|humanities/i.test(value)) return 'arts'
-  if (/fitness|sport/i.test(value)) return 'sports'
-  if (/wellness|health/i.test(value)) return 'wellness'
+  // PlanItPurple files gym classes under "Fitness/Sports"; real games are recognised from their titles.
+  if (/fitness|wellness|health/i.test(value)) return 'wellness'
+  if (/sport/i.test(value)) return 'sports'
   if (/career|workplace/i.test(value)) return 'career'
   if (/social/i.test(value)) return 'social'
   if (/academic|science|lecture/i.test(value)) return 'academic'

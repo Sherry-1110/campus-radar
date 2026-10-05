@@ -16,11 +16,11 @@ export type DbCategory =
 
 export type CategoryGroup = 'music' | 'arts' | 'sports' | 'activities' | 'fests' | 'parties'
 
-/** The six categories on the site. Talks, careers, food on its own and anything unmatched appear only under "All". */
+/** The six categories on the site. Sports means games; gym classes (wellness), talks, careers, food on its own and anything unmatched appear only under "All". */
 export const CATEGORY_GROUPS: { value: CategoryGroup; label: string; members: DbCategory[] }[] = [
   { value: 'music', label: 'Music', members: ['music'] },
   { value: 'arts', label: 'Arts', members: ['arts', 'exhibition'] },
-  { value: 'sports', label: 'Sports', members: ['sports', 'wellness'] },
+  { value: 'sports', label: 'Sports', members: ['sports'] },
   { value: 'activities', label: 'Activities', members: ['play'] },
   { value: 'fests', label: 'Fests', members: ['market'] },
   { value: 'parties', label: 'Parties', members: ['social'] },

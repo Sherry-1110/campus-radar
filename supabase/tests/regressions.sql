@@ -191,7 +191,7 @@ begin
     values (school, 'We the People in Greektown', 'The new public art exhibit celebrates the 250th anniversary.', '2099-06-01T20:00:00Z', 'arts') returning categories into cats;
   assert cats = array['arts', 'exhibition']::public.event_category[], 'Explicit exhibit phrase: ' || cats::text;
   insert into public.events (school_id, title, description, start_time, category)
-    values (school, 'Sumo and Sushi', 'Watch a sumo exhibition match and eat.', '2099-06-02T20:00:00Z', 'sports') returning categories into cats;
+    values (school, 'Sumo Tournament and Sushi', 'Watch a sumo exhibition match and eat.', '2099-06-02T20:00:00Z', 'sports') returning categories into cats;
   assert cats = array['sports']::public.event_category[], 'Loose mention must not add exhibition: ' || cats::text;
 end;
 $$;
@@ -318,7 +318,8 @@ begin
   assert not hidden, 'Other sources are never hidden';
   insert into public.events (school_id, title, start_time, source_id, status) values (school, 'Fall Concert', '2099-12-03T20:00:00Z', nu, 'published') returning is_hidden into hidden;
   assert not hidden, 'Ordinary Northwestern events stay visible';
-  assert not exists (select 1 from public.browse_events(p_term => 'DOM Medical Grand Rounds')), 'Hidden events are left out of the feed';
+  assert not exists (select 1 from public.browse_events(p_categories => array['other','academic']::public.event_category[], p_ranges => '[{"from":"2099-12-01Z","to":"2099-12-02Z"}]')), 'Hidden events are left out of browsing';
+  assert exists (select 1 from public.browse_events(p_term => 'DOM Medical Grand Rounds')), 'Hidden events are still found by search';
 end;
 $$;
 rollback;
@@ -356,6 +357,52 @@ begin
   assert n = 0, 'Gap between ranges matches nothing: ' || n;
   select count(*) into n from public.browse_events(p_term => 'Bound Test', p_ranges => '[{"from":"2099-01-10Z","to":null}]');
   assert n = 1, 'Open-ended range: ' || n;
+end;
+$$;
+rollback;
+
+-- Test: from Northwestern calendars only the six site categories are listed, and staff-only events are hidden.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  nu uuid := (select id from public.sources where url ilike '%planitpurple%');
+  other_source uuid := (select id from public.sources where url ilike '%eventbrite%');
+  hidden boolean;
+begin
+  insert into public.events (school_id, title, start_time, source_id, status) values (school, 'Analysis Seminar | Visiting Speaker', '2099-12-05T20:00:00Z', nu, 'published') returning is_hidden into hidden;
+  assert hidden, 'A Northwestern seminar is hidden';
+  insert into public.events (school_id, title, start_time, source_id, status) values (school, 'Study Abroad Info Session', '2099-12-05T21:00:00Z', other_source, 'published') returning is_hidden into hidden;
+  assert not hidden, 'Other sources keep their talks';
+  insert into public.events (school_id, title, start_time, source_id, status) values (school, 'Fall 2026 Staff All-Level Yoga', '2099-12-06T20:00:00Z', nu, 'published') returning is_hidden into hidden;
+  assert hidden, 'Staff-only events are hidden';
+  insert into public.events (school_id, title, start_time, source_id, status, category) values (school, 'Faculty Recital: Piano', '2099-12-07T20:00:00Z', nu, 'published', 'music') returning is_hidden into hidden;
+  assert not hidden, 'Faculty recitals are shows and stay';
+  insert into public.events (school_id, title, start_time, source_id, status) values (school, 'Spanish Club Noche de Trivia', '2099-12-08T20:00:00Z', nu, 'published') returning is_hidden into hidden;
+  assert not hidden, 'Fun Northwestern events stay';
+end;
+$$;
+rollback;
+
+-- Test: Sports means games; gym classes are wellness and hidden when they come from Northwestern; NU Athletics games show.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  nu uuid := (select id from public.sources where url ilike '%planitpurple%');
+  athletics uuid := (select id from public.sources where adapter_key = 'nusports');
+  cats public.event_category[];
+  hidden boolean;
+begin
+  assert athletics is not null, 'NU Athletics source exists';
+  insert into public.events (school_id, title, start_time, source_id, status, category) values (school, 'Vinyasa Flow', '2099-12-20T20:00:00Z', nu, 'published', 'sports') returning categories, is_hidden into cats, hidden;
+  assert cats = array['wellness']::public.event_category[] and hidden, 'Gym class is hidden wellness: ' || cats::text;
+  insert into public.events (school_id, title, start_time, source_id, status, category) values (school, 'Northwestern Football vs. Ball State', '2099-12-21T20:00:00Z', athletics, 'published', 'sports') returning categories, is_hidden into cats, hidden;
+  assert 'sports' = any(cats) and not hidden, 'Varsity game is a visible sport: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Standup Throw Down: Millennials vs Gen X', '2099-12-22T20:00:00Z', 'other') returning categories into cats;
+  assert not ('sports' = any(cats)), 'A comedy "vs" is not a game: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Chicago Bulls vs. Memphis Grizzlies', '2099-12-23T20:00:00Z', 'sports') returning categories into cats;
+  assert cats = array['sports']::public.event_category[], 'Pro game: ' || cats::text;
 end;
 $$;
 rollback;

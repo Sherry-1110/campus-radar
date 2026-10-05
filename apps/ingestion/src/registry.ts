@@ -7,4 +7,5 @@ export const sources: { id: string; name: string; hosts: string[]; fetch: (fetch
   { id: 'bienen', name: 'Bienen School of Music', hosts: ['www.music.northwestern.edu'], fetch: async f => (await import('./sources/bienen.ts')).fetchBienen(f) },
   { id: 'choose-chicago', name: 'Choose Chicago', hosts: ['www.choosechicago.com'], fetch: async f => (await import('./sources/choose-chicago.ts')).fetchChooseChicago(f) },
   { id: 'garage', name: 'The Garage', hosts: ['www.addevent.com'], fetch: async f => (await import('./sources/garage.ts')).fetchGarage(f) },
+  { id: 'nusports', name: 'NU Athletics', hosts: ['nusports.com'], fetch: async f => (await import('./sources/nusports.ts')).fetchNuSports(f) },
 ]

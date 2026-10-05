@@ -139,7 +139,7 @@ test('category groups expand to their database categories', () => {
   assert.deepEqual(categoryClause(['arts']), { kind: 'some', dbCategories: ['arts', 'exhibition'] })
   assert.deepEqual(categoryClause(['sports', 'fests']), {
     kind: 'some',
-    dbCategories: ['sports', 'wellness', 'market'],
+    dbCategories: ['sports', 'market'],
   })
 })
 
