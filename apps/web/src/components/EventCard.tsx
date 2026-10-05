@@ -7,6 +7,7 @@ import { localized, useLang } from '@/lib/i18n'
 import { eventPageUrl } from '@/lib/maps'
 import { cardPlace } from '@/lib/place'
 import { isMobileViewport } from '@/lib/useEventSelection'
+import { isAthleticsGame } from '@/lib/eventSource'
 import { Poster } from './Poster'
 import { CategoryChips } from './CategoryChip'
 import { SaveButton } from './SaveButton'
@@ -20,7 +21,7 @@ export function EventCard({ event, onSelect }: { event: EventListItem; onSelect?
   return <article className="group relative overflow-hidden rounded-lg border sm:rounded-2xl border-line bg-surface shadow-card motion-safe:transition motion-safe:duration-200 hover:border-brand-200 hover:shadow-card-hover motion-safe:hover:-translate-y-0.5">
     <Link to={`/events/${event.id}`} aria-label={t('View {0}', title)} className="block"
       onClick={e => { if (onSelect && isMobileViewport() && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); onSelect(event.id, e.currentTarget) } }}>
-      <Poster key={event.cover_image_url} src={event.cover_image_url} title={title} category={event.category} natural />
+      <Poster key={event.cover_image_url} src={event.cover_image_url} title={title} category={event.category} natural matchup={isAthleticsGame(event)} />
       <div className="flex flex-col gap-1.5 p-2 sm:p-3 [overflow-wrap:anywhere]">
         {event.is_cancelled && <p className="text-sm font-bold text-danger">{t('Canceled')}</p>}
         <h2 className="text-sm sm:text-base font-bold leading-snug group-hover:text-brand-700">{title}</h2>

@@ -406,3 +406,18 @@ begin
 end;
 $$;
 rollback;
+
+-- Test: "Ball State" is a team, not a party; a ball is still a party.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, start_time, category) values (school, 'Northwestern Football vs. Ball State', '2099-12-24T20:00:00Z', 'sports') returning categories into cats;
+  assert not ('social' = any(cats)), 'Ball State is not a party: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category) values (school, 'Symphony Ball', '2099-12-25T20:00:00Z', 'other') returning categories into cats;
+  assert 'social' = any(cats), 'A ball is a party: ' || cats::text;
+end;
+$$;
+rollback;

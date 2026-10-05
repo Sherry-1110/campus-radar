@@ -1,6 +1,7 @@
 import { CalendarDays, CalendarPlus, Check, Copy, Download, ExternalLink, MapPin, Share2, Ticket } from 'lucide-react'
 import { useState } from 'react'
 import { CategoryChips } from './CategoryChip'
+import { isAthleticsGame } from '@/lib/eventSource'
 import { Poster } from './Poster'
 import { SaveButton } from './SaveButton'
 import { buttonPrimary, buttonSecondary } from './StateMessage'
@@ -76,7 +77,7 @@ export function EventDetail({ event }: { event: EventRow }) {
       <div className="lg:sticky lg:top-6 lg:self-start">
         <div className="overflow-hidden rounded-3xl border border-line bg-brand-100 shadow-card">
           <div className="relative mx-auto w-full">
-            <Poster natural src={event.cover_image_url} title={title} category={event.category} />
+            <Poster natural src={event.cover_image_url} title={title} category={event.category} matchup={isAthleticsGame(event)} />
             <div className="absolute right-3 top-3"><SaveButton id={event.id} title={title} label /></div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { load } from 'cheerio'
 import { createHash } from 'node:crypto'
 import { record, text, string } from './sources/shared.ts'
 import type { Candidate, SourceResult } from './types.ts'
-import type { Decision } from './semantic.ts'
+import type { Decision, Detail } from './semantic.ts'
 
 type Page = { html: string; url: string }
 type FetchPage = (url: string) => Promise<Page>
@@ -36,7 +36,53 @@ export function image(value: unknown, base: string): string | null {
   const v=Array.isArray(value)?value[0]:value
   const u=link(typeof v==='object'?record(v).url||record(v).contentUrl:v,base)
   if(u && new URL(u).hostname==='cdn.addevent.com' && /\/(?:libs\/imgs|web\/images)\//.test(new URL(u).pathname)) return null
-  return u && !/logo|favicon|placeholder|default[-_ ]?image/i.test(new URL(u).pathname) ? u : null
+  // Site-wide share images (a university thumbnail, a logo) say nothing about the event.
+  return u && !/logo|favicon|placeholder|default[-_ ]?image|thumbnail|[-_]thumb\.|\/icons?\//i.test(new URL(u).pathname) ? u : null
+}
+
+const homepage = (url: string) => /^\/(?:home|index\.html?)?$/i.test(new URL(url).pathname)
+
+/**
+ * On a listing page that names this event among others, the picture in the event's own block:
+ * the nearest enclosing element that holds its title, one heading at most, and an image.
+ */
+export function nearbyImage(html: string, pageUrl: string, title: string): string | null {
+  const $ = load(html)
+  // Compare meaningful words only: "Tuesdays: Karaoke" is the block for "CANCELLED: Tuesday Karaoke in Luna's Pub!".
+  const terms = (s: string) => [...new Set(words(s).map(w => w.length > 4 ? w.replace(/s$/, '') : w)
+    .filter(w => w.length > 2 && !/^(?:cancel+ed|postponed|(?:mon|tues|wednes|thurs|fri|satur|sun)day|night|event|series|weekly|annual|free)$/.test(w)))]
+  const want = new Set(terms(title))
+  if (!want.size) return null
+  for (const el of $('h1,h2,h3,h4,h5,strong,em,a').toArray()) {
+    const label = text($(el).html())
+    if (label.length > 160) continue
+    const heading = terms(label)
+    const shared = heading.filter(w => want.has(w)).length
+    // Most of the heading is in the title, and it covers a fair part of the title.
+    if (!shared || shared / heading.length < 0.6 || shared / want.size < 0.25) continue
+    const usable = (scope: ReturnType<typeof $>) => scope.find('img').addBack('img').toArray()
+      .map(img => image($(img).attr('data-src') || $(img).attr('src'), pageUrl))
+      .filter((url): url is string => Boolean(url && !/\.svg(?:$|\?)/i.test(url)))
+    // A card: the nearest enclosing block with exactly one picture (a subtitle or two is fine).
+    let box = $(el)
+    for (let level = 0; level < 4; level++) {
+      box = box.parent()
+      if (!box.length || box.find('h1,h2,h3,h4').length > 3) break
+      const pictures = usable(box)
+      if (pictures.length === 1) return pictures[0]!
+      if (pictures.length > 1) break
+    }
+    // A flat page: the first picture after the heading, before the next heading of the same rank or higher.
+    if (/^h[1-5]$/.test(el.tagName)) {
+      const rank = Number(el.tagName[1])
+      for (const next of $(el).nextAll().toArray().slice(0, 8)) {
+        if (/^h[1-6]$/.test(next.tagName) && Number(next.tagName[1]) <= rank) break
+        const pictures = usable($(next))
+        if (pictures.length) return pictures[0]!
+      }
+    }
+  }
+  return null
 }
 export function nodes(value: unknown): Record<string, unknown>[] {
   if(Array.isArray(value)) return value.flatMap(nodes)
@@ -69,7 +115,12 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   const corroborated=$('article').length===1 && words(item.data.title).some(w=>w.length>=4 && !['campus','event','events','calendar'].includes(w) && titleWords.has(w))
     && body.find('p').toArray().some(el=>descriptionMatches(item.data.description||'',text($(el).html())))
   const pageMatches=matches(item.data.title,heading)||matches(item.data.title,$('h1').first().text())||corroborated
-  if(!event && !pageMatches) return null
+  if(!event && !pageMatches) {
+    // Not this event's own page, but perhaps a listing that shows it: borrow its picture only if it has none.
+    const nearby=item.data.cover_image_url||homepage(pageUrl)?null:nearbyImage(html,pageUrl,item.data.title)
+    // A listing is not the event's page: keep the calendar's own link as the source.
+    return nearby?{description:null,image:nearby,next:[],listing:true}:null
+  }
   let article=text(content.html())
   if(/\btickets?\b/i.test(heading)) {
     // ponytail: omit premium ticket sales sections from the fallback description;
@@ -97,7 +148,9 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
       && ![...tokens].some(w=>/^20\d\d$/.test(w)&&w!==year)
       && titleTokens.filter(w=>tokens.has(w)).length>=Math.min(2,titleTokens.length) ? url : null
   }).find(Boolean)
-  const poster=(pageMatches?visiblePoster:null)||image(event?.image,pageUrl)||(pageMatches?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
+  const poster=(pageMatches?visiblePoster:null)||image(event?.image,pageUrl)||(pageMatches&&!homepage(pageUrl)?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
+    // The page is about this event but offers no specific share image: use the picture beside its title.
+    ||(item.data.cover_image_url?null:nearbyImage(html,pageUrl,item.data.title))
   const next=event?[event.url,...(Array.isArray(event.sameAs)?event.sameAs:[event.sameAs])].map(v=>link(v,pageUrl)).filter((v):v is string=>Boolean(v&&v!==pageUrl)):[]
   for(const a of content.find('a[href]').toArray()) {
     if(/^(?:more (?:info(?:rmation)?|details)|full details|event website|official (?:event|website)|learn more)$/i.test(text($(a).text()))) {
@@ -153,7 +206,7 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
         if(!depth) details.checked++
         try{
           const page=await get(target);chain.push(page.url)
-          let extracted=extractDetail(page.html,page.url,item)
+          let extracted:(Detail&{listing?:boolean})|null=extractDetail(page.html,page.url,item)
           if(semantic) {
             const decision=await semantic.select(page.html,page.url,item)
             ;(item.semantic??=[]).push(decision.audit)
@@ -177,7 +230,7 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
             fields.add('description')
           }
           if(extracted.image){item.data.cover_image_url=extracted.image;fields.add('cover_image_url')}
-          item.data.source_url=page.url;fields.add('source_url')
+          if(!extracted.listing){item.data.source_url=page.url;fields.add('source_url')}
           target=extracted.next[0]||null
         }catch{
           failed=true;details.failed++

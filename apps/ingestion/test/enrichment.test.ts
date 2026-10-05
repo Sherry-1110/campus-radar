@@ -98,3 +98,19 @@ test('corroborates shortened organizer titles with specific calendar description
   assert.equal(extractDetail(page.replace('Mass - Sheil Catholic Center','Campus news'),candidate.related_url,candidate),null,'Shared boilerplate cannot override an unrelated page title')
   assert.equal(extractDetail(page+html({...event,name:candidate.data.title,startDate:'2024-01-01'}),candidate.related_url,candidate),null,'Contradictory structured event dates still reject the page')
 })
+
+test('a listing page lends the picture beside this event, never a site-wide image or a neighbour\'s', async () => {
+  const { nearbyImage } = await import('../src/enrichment.ts')
+  const url = 'https://www.northwestern.edu/norris/programs.html'
+  const cards = `<main>
+    <div class="card"><div class="text"><h3>Tuesdays: Karaoke</h3><p>Sing.</p></div><img src="/img/karaoke.webp"></div>
+    <div class="card"><div class="text"><h3>Thursday Trivia</h3></div><img src="/img/trivia.webp"></div>
+  </main>`
+  assert.equal(nearbyImage(cards, url, "CANCELLED: Tuesday Karaoke in Luna's Pub!"), 'https://www.northwestern.edu/img/karaoke.webp')
+  assert.equal(nearbyImage(cards, url, 'Thursday Trivia Night'), 'https://www.northwestern.edu/img/trivia.webp')
+  assert.equal(nearbyImage(cards, url, 'Intro to Knitting Workshop'), null)
+  const flat = '<div><h2>Break Right Through That Line</h2><h3>Football at Northwestern</h3><p><img src="/ex/football.webp"></p><h2>Other Exhibit</h2><p><img src="/ex/other.webp"></p></div>'
+  assert.equal(nearbyImage(flat, url, 'Break Right Through That Line: Football at Northwestern'), 'https://www.northwestern.edu/ex/football.webp')
+  const generic = '<div class="card"><h3>Karaoke</h3><img src="/images/northwestern-thumbnail.jpg"></div>'
+  assert.equal(nearbyImage(generic, url, 'Karaoke Night'), null, 'site thumbnails are not event pictures')
+})

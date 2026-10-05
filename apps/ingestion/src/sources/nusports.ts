@@ -2,7 +2,7 @@ import type { Candidate, FetchText, SourceResult } from '../types.ts'
 import { endOfLocalDay } from './shared.ts'
 
 // Northwestern Athletics (Sidearm) schedule API, the data behind nusports.com/all-sports-schedule.
-const API = 'https://nusports.com/website-api/schedule-events?filter%5Bupcoming%5D=1&sort=datetime&per_page=100&include=opponent,schedule.sport'
+const API = 'https://nusports.com/website-api/schedule-events?filter%5Bupcoming%5D=1&sort=datetime&per_page=100&include=opponentLogo,opponent.officialLogo,opponent.customLogo,schedule.sport'
 // Tournament-style "opponents" read better as an event name than as "vs. …".
 const MEET = /\b(invitational|classic|championships?|tournament|open|meet|regatta|nac|regional|intercollegiate|relays?|cup)\b/i
 
@@ -17,6 +17,9 @@ interface SidearmEvent {
   location: string | null
   status: string | null
   opponent_name: string | null
+  /** The logo nusports.com shows for this game (also set for tournaments). */
+  opponent_logo?: { url: string } | null
+  opponent: { official_logo: { url: string } | null; custom_logo: { url: string } | null } | null
   schedule: { sport: { name: string; slug: string } | null } | null
 }
 
@@ -37,13 +40,15 @@ export function toCandidate(event: SidearmEvent): Candidate {
   const end = event.datetime_end ? Date.parse(event.datetime_end) : null
   const title = MEET.test(opponent) ? `Northwestern ${sport.name}: ${opponent}` : `Northwestern ${sport.name} vs. ${opponent}`
   const place = [event.venue, event.location].filter(Boolean).join(', ') || null
+  // The opponent's logo; the site shows it beside Northwestern's as a matchup instead of a poster.
+  const logo = event.opponent_logo?.url || event.opponent?.custom_logo?.url || event.opponent?.official_logo?.url || null
   return {
     external_id: String(event.id),
     related_url: null,
     data: {
       title,
       description: `${sport.name} — Northwestern Wildcats ${event.venue_type === 'home' ? 'home ' : ''}game against ${opponent}${place ? ` at ${place}` : ''}.`,
-      cover_image_url: null,
+      cover_image_url: logo && /^https:\/\/(storage\.googleapis\.com\/nusports-com-prod|nusports\.com\/imgproxy)\//.test(logo) ? logo : null,
       start_time: new Date(start).toISOString(),
       end_time: allDay ? endOfLocalDay(end ?? start, 'CT') : end && end >= start ? new Date(end).toISOString() : null,
       location: place,

@@ -10,3 +10,6 @@ export function eventSource(event: SourceEvent) {
   const source = event.event_sources?.find(s => (s.source_url || s.sources?.url) === url)
   return { url, name: source?.sources?.name || new URL(url).hostname.replace(/^www\./, '') }
 }
+
+/** Games imported from Northwestern Athletics; their image is the opponent's logo, shown as a matchup. */
+export const isAthleticsGame = (event: { source_url: string | null }) => event.source_url?.startsWith('https://nusports.com/') ?? false
