@@ -22,7 +22,7 @@ test('featured events need a poster, skip talks, show a series once, and rank bi
   assert.equal('description' in picked[0]!, false)
 })
 
-test('hand-picked events lead in rank order, may be any category, and show a repeated title once', () => {
+test('hand-picked events always make the strip, may be any category, show a repeated title once, and run in start order', () => {
   const picked = pickFeatured([
     event('auto', { categories: ['arts'], description: 'x'.repeat(2000) }),
     event('fair-2', { title: 'Art Fair', series_id: 'b', featured_rank: 2, start_time: '2026-10-09T16:00:00Z' }),
@@ -30,7 +30,7 @@ test('hand-picked events lead in rank order, may be any category, and show a rep
     event('marathon', { categories: ['sports'], featured_rank: 1 }),
     event('no-poster', { featured_rank: 3, cover_image_url: null }),
   ], 2)
-  assert.deepEqual(picked.map(e => e.id), ['marathon', 'fair-1'])
+  assert.deepEqual(picked.map(e => e.id), ['fair-1', 'marathon'])
   assert.deepEqual(pickFeatured([event('auto', { categories: ['arts'] }), event('marathon', { featured_rank: 1 })], 3).map(e => e.id), ['marathon', 'auto'])
   assert.equal('featured_rank' in picked[0]!, false)
 })

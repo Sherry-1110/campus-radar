@@ -12,7 +12,7 @@ async function picks(): Promise<Pick[]> {
     select: 'id,title,start_time,is_all_day,location',
     featured_rank: 'not.is.null', status: 'eq.published', is_hidden: 'eq.false', is_cancelled: 'eq.false',
     or: `(start_time.gte.${now.toISOString()},end_time.gte.${now.toISOString()})`,
-    order: 'featured_rank,start_time', limit: '40',
+    order: 'start_time', limit: '40',
   })
   const response = await fetch(`${SUPABASE}/rest/v1/events?${query}`, {
     headers: { apikey: KEY, authorization: `Bearer ${KEY}` },

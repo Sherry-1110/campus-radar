@@ -15,8 +15,8 @@ export function featuredScore(e: FeaturedCandidate): number {
 
 // ponytail: heuristic over one fetched batch, after any hand-picked events (featured_rank).
 /**
- * Hand-picked events come first, in their rank order. The rest are events with posters that look big; only
- * show-like categories qualify (not talks or meetings), and a series or a repeated title appears once.
+ * Hand-picked events always make it, then events with posters that look big; only show-like categories
+ * qualify (not talks or meetings), and a series or a repeated title appears once. Shown in start order.
  */
 export function pickFeatured(rows: FeaturedCandidate[], limit = 8): EventListItem[] {
   const rank = (e: FeaturedCandidate) => e.featured_rank ?? Infinity
@@ -31,7 +31,9 @@ export function pickFeatured(rows: FeaturedCandidate[], limit = 8): EventListIte
     .sort((a, b) => rank(a) - rank(b) || (a.featured_rank ? 0 : featuredScore(b) - featuredScore(a)) || a.start_time.localeCompare(b.start_time))
     .filter(e => e.cover_image_url && !e.is_cancelled && (e.featured_rank || e.categories.some(c => SPECIAL.has(c))) && fresh(e))
   const picks = chosen.filter(e => e.featured_rank).length
+  // Shown soonest first; the rank and score above only decide which events make the strip.
   return chosen
     .slice(0, Math.max(limit, picks))
+    .sort((a, b) => a.start_time.localeCompare(b.start_time) || Number(!a.featured_rank) - Number(!b.featured_rank))
     .map(({ description: _description, featured_rank: _rank, ...item }) => item)
 }
