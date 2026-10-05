@@ -359,3 +359,25 @@ pagination, the adapter discards the partial snapshot and restarts from page one
 with a fresh cache key on every page (up to three attempts). All URL, count,
 duplicate-ID and completeness checks remain enforced; an inconsistent final
 attempt still fails without reconciling a partial collection.
+
+
+### Persistent Jev category tags
+
+After source reconciliation (including organizer descriptions), the nightly workflow
+runs `node apps/ingestion/src/categories.ts`. It uses the frontend's six groups:
+Music, Arts, Sports, Activities, Fests and Parties. Up to three supported tags are
+stored in `events.categories`; events outside those groups use `other` (Event).
+A service-only cache keys decisions by the exact title and description, reusing
+judgments for recurring dates and future imports. New or changed text is queued
+automatically. Existing records are processed by the same job, not a separate
+one-time classifier. Explicit category arrays that differ from the existing
+classifier are preserved during backfill.
+
+The job checks seven live examples before writing, processes up to 5,000 distinct
+texts with six workers and a 20-minute budget, and records totals in the Actions
+summary. Each of the six Noul answers must be <=0.2 or >=0.8; ambiguous results
+retain existing rule-based tags and retry next time. Attempt timestamps rotate
+retries behind untried text; paginated reads avoid the API row cap. API/database failures are
+reported separately and never roll back source ingestion. No API key reaches the
+frontend. Changes to the model, prompts or taxonomy require an evaluation and a
+new cache version in both the worker and migration.

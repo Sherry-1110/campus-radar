@@ -236,5 +236,46 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
       await db.exec('reset role')
     }
 
+
+    // Jev decisions persist across recurring dates and ingestion, but never follow changed text.
+    const tagged = structuredClone(city)
+    tagged.external_id = 'jev-1'; tagged.data.title = 'A special evening'; tagged.data.description = 'Hear rock bands at a festival.'
+    tagged.data.category = 'other'; tagged.data.source_url = 'https://www.choosechicago.com/event/jev-1/'
+    await sync([tagged], 'Choose Chicago')
+    const labels = async () => (await db.query<{categories: string[]; category: string}>("select categories::text[] as categories,category from events where source_url=$1", [tagged.data.source_url])).rows[0]
+    const remember = () => db.query<{count: number}>("select public.remember_event_categories($1,$2,array['music','market']::public.event_category[],'{}','fun-v1','jev-1.13.0') as count", [tagged.data.title, tagged.data.description])
+    await db.exec('set role service_role')
+    assert.equal((await remember()).rows[0].count, 1)
+    await db.exec('reset role')
+    assert.deepEqual((await labels()).categories, ['music', 'market'])
+    await db.query("select public.remember_event_categories($1,$2,null,'{}','fun-v1','jev-1.13.0')", [tagged.data.title, tagged.data.description])
+    assert.equal((await db.query("select * from public.pending_event_categories() where title=$1", [tagged.data.title])).rows.length, 0, 'A failed concurrent attempt cannot erase an accepted cache entry')
+    tagged.data.start_time = '2026-11-09T01:30:00.000Z'
+    await sync([tagged], 'Choose Chicago')
+    assert.deepEqual((await labels()).categories, ['music', 'market'], 'Schedule updates must retain Jev categories')
+    const recurrence = structuredClone(tagged)
+    recurrence.external_id = 'jev-2'; recurrence.data.source_url = 'https://www.choosechicago.com/event/jev-2/'
+    recurrence.data.start_time = '2026-11-10T01:30:00.000Z'
+    await sync([recurrence], 'Choose Chicago')
+    assert.deepEqual((await db.query<{categories: string[]}>("select categories::text[] as categories from events where source_url=$1", [recurrence.data.source_url])).rows[0].categories, ['music','market'], 'New recurring dates reuse the cache immediately')
+    assert.equal((await db.query("select * from public.pending_event_categories() where title=$1", [tagged.data.title])).rows.length, 0)
+    await db.query("update events set categories=array['social']::public.event_category[] where source_url=$1", [tagged.data.source_url])
+    await remember()
+    assert.deepEqual((await labels()).categories, ['social'], 'Explicit curator tags must survive a backfill')
+    tagged.data.description = 'An academic panel on public policy.'
+    await sync([tagged], 'Choose Chicago')
+    assert.equal((await db.query("select * from public.pending_event_categories() where title=$1 and description=$2", [tagged.data.title, tagged.data.description])).rows.length, 1, 'Changed descriptions must be queued again')
+    const pendingFirst = (await db.query<{title:string;description:string}>('select * from public.pending_event_categories(1)')).rows[0]
+    await db.query("select public.remember_event_categories($1,$2,null,'{}','fun-v1','jev-1.13.0')", [pendingFirst.title, pendingFirst.description])
+    const pendingNext = (await db.query<{title:string;description:string}>('select * from public.pending_event_categories(1)')).rows[0]
+    assert.notDeepEqual(pendingNext, pendingFirst, 'Uncertain attempts rotate behind untried events')
+    assert.equal((await db.query('select * from public.pending_event_categories() where title=$1 and description=$2', [pendingFirst.title,pendingFirst.description])).rows.length, 1, 'Uncertain events stay eligible for retry')
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec(`set role ${role}`)
+      await assert.rejects(db.query('select * from public.pending_event_categories()'), /permission denied/)
+      await assert.rejects(remember(), /permission denied/)
+      await db.exec('reset role')
+    }
+
   } finally { await db.close() }
 })

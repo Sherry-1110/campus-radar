@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/ingestion/src/coordinates.ts'
       - 'apps/ingestion/src/census.ts'
+      - 'apps/ingestion/src/categories.ts'
       - 'apps/web/src/lib/geocoding.ts'
       - '.github/workflows/nightly-events.yml'
   schedule:
@@ -99,3 +100,25 @@ jobs:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           GOOGLE_GEOCODING_API_KEY: ${{ secrets.GOOGLE_GEOCODING_API_KEY || secrets.VITE_GOOGLE_MAPS_API_KEY }}
         run: npm run coordinates -w @campus-radar/ingestion -- --apply --limit 1000
+
+  categories:
+    name: Classify event categories with Jev
+    needs: sync
+    # Enrichment is committed before classification. A failed source does not block other events.
+    if: ${{ always() && !cancelled() && (github.event_name == 'schedule' || github.event_name == 'push' || inputs.apply) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Classify new or changed event text and store tags
+        env:
+          SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: node apps/ingestion/src/categories.ts
