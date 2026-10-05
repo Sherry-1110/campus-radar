@@ -1,0 +1,348 @@
+{
+  "count": 3,
+  "page": 1,
+  "total_pages": 1,
+  "next": null,
+  "results": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "41d7937d-c8c1-4547-ba92-587013be6442",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -87.6815944,
+            42.047157999999975
+          ]
+        },
+        "properties": {
+          "id": "41d7937d-c8c1-4547-ba92-587013be6442",
+          "name": "Evanston Rides: Adult Social Ride",
+          "slug": "evanston-rides-adult-social-ride-2",
+          "description": "<div>Join us for an invigorating bike ride designed just for adults. Whether you're a seasoned cyclist or just dusting off your old bike, we plan to break into fast and leisurely groups, so these rides are perfect for all skill levels. Explore the beauty of Evanston and the North Shore, meet fellow biking enthusiasts, and discover the hidden gems of our community. Best of all, these rides are entirely free, so grab your helmet and join us! Please bring a bike light to be sure you get home safely.<span>\u00a0</span><a href=\"https://docs.google.com/forms/d/e/1FAIpQLSf9n36wu_Um2EiGishBB8s9PotsudpfeDxKHG0U03NNHJwgfg/viewform?usp=publish-editor\" target=\"_blank\" rel=\"noopener noreferrer\"><em>REGISTER HERE</em></a><em><span>\u00a0</span>so that we know how many riders to expect on this date.</em><br><br></div>\n<ul>\n<li><strong>Start:<span>\u00a0</span></strong>This ride will leave from<span>\u00a0</span><a href=\"https://www.google.com/maps/place/Fountain+Square/@42.0469134,-87.6842176,17z/data=!3m1!4b1!4m6!3m5!1s0x880fd00dc9c98231:0x96ddbf8b65df2336!8m2!3d42.0469094!4d-87.6816373!16s%2Fg%2F12lppt07f?entry=ttu\" target=\"_blank\" rel=\"noopener noreferrer\">Fountain Square</a><span>\u00a0</span>at 5:30PM<span>\u00a0</span><em>(please arrive early to get situated)</em></li>\n<li><strong>Route Description:</strong><span>\u00a0</span>Evanston Loop ride<span>\u00a0</span><em>(leisurely group riding approximately 10 miles roundtrip, and fast group riding perhaps 20 miles)</em>\n<ul>\n<li>PLEASE BRING A BIKE LIGHT</li>\n</ul>\n</li>\n<li><strong>End:<span>\u00a0</span></strong>This ride will end with an optional happy-hour at<span>\u00a0</span><a href=\"https://ridgevilletavern.com/\" target=\"_blank\" rel=\"noopener noreferrer\">Ridgeville Tavern</a><span>\u00a0</span>in downtown Evanston, where those in attendance can enjoy a<span>\u00a0</span><strong>10% discount</strong><span>\u00a0</span>on food & beverage purchases that evening! Riders in attendance will also be entered into a drawing for a $25<span>\u00a0</span><a href=\"https://app.yiftee.com/gift-card/evanston\" target=\"_blank\" rel=\"noopener noreferrer\">Evanston E-Gift Card</a>.</li>\n</ul>",
+          "vibes": [],
+          "vibe_count": 0,
+          "tags": [
+            "Community",
+            "bike ride",
+            "Evanston",
+            "Chicago, IL",
+            "Evanston_Events",
+            "events_feed_predicted",
+            "evanston-history",
+            "Downtown Evanston",
+            "Evanston, IL",
+            "Cook County, IL"
+          ],
+          "geo_tags": [],
+          "address": "1601 Sherman Ave, Evanston, IL 60201, USA",
+          "city": "Evanston, IL",
+          "neighborhood": null,
+          "categories": [],
+          "category_slugs": [],
+          "lists": [],
+          "venue_list_ids": [],
+          "is_out_of_boundary": false,
+          "vibemap_images": [
+            {
+              "blurhash": "LACr:1no0-N44}X2Z#xUIojK%Jai",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_image_M884-d292.jpeg?updatedAt=1776885450243",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_image_M884-d292.jpeg?updatedAt=1776885450243",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_image_M884-d292.jpeg?updatedAt=1776885450243&tr=h-250,w-250"
+            }
+          ],
+          "venue_images": [
+            {
+              "blurhash": "LVKe1Q9FxuM{~q-;ozIU~qj[t7WB",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_Fountain_Square_1974__44yHPpY8.jpg?updatedAt=1757108873192",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_Fountain_Square_1974__44yHPpY8.jpg?updatedAt=1757108873192",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_Fountain_Square_1974__44yHPpY8.jpg?updatedAt=1757108873192&tr=h-150%2Cw-150"
+            }
+          ],
+          "hotspots_place": "Fountain Square",
+          "place_id": "363f8183-aa56-4d85-99f1-1c2dd8727ab4",
+          "place_slug": "fountain-square-1",
+          "likes": null,
+          "url": "https://downtownevanston.org/evanstonrides",
+          "domain": null,
+          "event_status": "SCHEDULED",
+          "start_date": "2026-10-06T17:30:00",
+          "end_date": "2026-10-06T19:30:00",
+          "updated_at": "2026-04-23T13:23:25.374722",
+          "created_at": "2026-04-22T14:17:28.193760",
+          "price": null,
+          "price_display": "",
+          "location": {
+            "lat": 42.047157999999975,
+            "lon": -87.6815944
+          },
+          "organizer": null,
+          "recurs": false,
+          "recurrence": null,
+          "recurrence_display": null,
+          "text_full": "Evanston Rides: Adult Social Ride Fountain Square Fountain Fountain Square Square <div>Join us for an invigorating bike ride designed just for adults. Whether you're a seasoned cyclist or just dusting off your old bike, we plan to break into fast and leisurely groups, so these rides are perfect for all skill levels. Explore the beauty of Evanston and the North Shore, meet fellow biking enthusiasts, and discover the hidden gems of our community. Best of all, these rides are entirely free, so grab your helmet and join us! Please bring a bike light to be sure you get home safely.<span>\u00a0</span><a href=\"https://docs.google.com/forms/d/e/1FAIpQLSf9n36wu_Um2EiGishBB8s9PotsudpfeDxKHG0U03NNHJwgfg/viewform?usp=publish-editor\" target=\"_blank\" rel=\"noopener noreferrer\"><em>REGISTER HERE</em></a><em><span>\u00a0</span>so that we know how many riders to expect on this date.</em><br><br></div>\n<ul>\n<li><strong>Start:<span>\u00a0</span></strong>This ride will leave from<span>\u00a0</span><a href=\"https://www.google.com/maps/place/Fountain+Square/@42.0469134,-87.6842176,17z/data=!3m1!4b1!4m6!3m5!1s0x880fd00dc9c98231:0x96ddbf8b65df2336!8m2!3d42.0469094!4d-87.6816373!16s%2Fg%2F12lppt07f?entry=ttu\" target=\"_blank\" rel=\"noopener noreferrer\">Fountain Square</a><span>\u00a0</span>at 5:30PM<span>\u00a0</span><em>(please arrive early to get situated)</em></li>\n<li><strong>Route Description:</strong><span>\u00a0</span>Evanston Loop ride<span>\u00a0</span><em>(leisurely group riding approximately 10 miles roundtrip, and fast group riding perhaps 20 miles)</em>\n<ul>\n<li>PLEASE BRING A BIKE LIGHT</li>\n</ul>\n</li>\n<li><strong>End:<span>\u00a0</span></strong>This ride will end with an optional happy-hour at<span>\u00a0</span><a href=\"https://ridgevilletavern.com/\" target=\"_blank\" rel=\"noopener noreferrer\">Ridgeville Tavern</a><span>\u00a0</span>in downtown Evanston, where those in attendance can enjoy a<span>\u00a0</span><strong>10% discount</strong><span>\u00a0</span>on food & beverage purchases that evening! Riders in attendance will also be entered into a drawing for a $25<span>\u00a0</span><a href=\"https://app.yiftee.com/gift-card/evanston\" target=\"_blank\" rel=\"noopener noreferrer\">Evanston E-Gift Card</a>.</li>\n</ul> Evanston, IL Evanston, IL downtownevanston.org downtownevanston evanstonrides",
+          "completeness_score": 0.88,
+          "score_combined": 0.728,
+          "is_approved": true,
+          "is_approved_crm": null,
+          "is_consecutive": false,
+          "is_featured": false,
+          "is_flagged": false,
+          "flag_reason": null,
+          "flag_severity": null,
+          "is_free": false,
+          "is_user_submitted": true,
+          "is_all_day": false,
+          "is_ongoing": false,
+          "data_source_identifier": null,
+          "data_source_url": "",
+          "approved_by": null,
+          "approved_at": "2026-04-23T13:23:25.374722",
+          "extra_data": {},
+          "score": null,
+          "performers": [],
+          "view_count": 0,
+          "timezone": "America/Chicago",
+          "has_image": true
+        }
+      },
+      {
+        "id": "526ca9d4-e21c-490d-bc4b-cbb8587abf28",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -87.68426399999998,
+            42.0482036
+          ]
+        },
+        "properties": {
+          "id": "526ca9d4-e21c-490d-bc4b-cbb8587abf28",
+          "name": "Midlife Women's Wellness Group -  September 28th",
+          "slug": "midlife-womens-wellness-group-september-28th_2026-10-15-19-30",
+          "description": "<p><span>What do dolphins have to do with hot flashes, life transitions, and becoming more boldly yourself? More than you'd think!</span></p>\n<p><span>Join\u00a0<strong>Kim Moldofsky- storyteller, Bold Belief Builder, and creator of\u00a0</strong><em><strong>Hot Flashes & Fierce Tales-\u00a0</strong></em>for an empowering conversation about navigating midlife through storytelling, reflection, and connection.</span></p>\n<p><span>Together, we'll explore finding meaning, resilience, and even a little joy in the messy, complicated, and surprising middle chapters of life.</span></p>\n<p><span>This event is free and open to all women in our community, so feel free to bring a friend.</span></p>",
+          "vibes": [],
+          "vibe_count": 0,
+          "tags": [
+            "Chicago, IL",
+            "events_feed_predicted",
+            "Cook County",
+            "Evanston, IL",
+            "events_feed",
+            "Evanston",
+            "Cook County, IL",
+            "Health & Beauty",
+            "Wellness",
+            "Community"
+          ],
+          "geo_tags": [],
+          "address": "910 Church St, Evanston, IL 60201",
+          "city": "Evanston, IL",
+          "neighborhood": null,
+          "categories": [
+            "health"
+          ],
+          "category_slugs": [
+            "health"
+          ],
+          "lists": [],
+          "venue_list_ids": [],
+          "is_out_of_boundary": false,
+          "vibemap_images": [
+            {
+              "blurhash": "LHR+gNqnxYxGV{bLt8spHloeNyof",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_image_fFYBQLjRU.jpeg?updatedAt=1788992028016",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_image_fFYBQLjRU.jpeg?updatedAt=1788992028016",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_image_fFYBQLjRU.jpeg?updatedAt=1788992028016&tr=h-250,w-250"
+            },
+            {
+              "blurhash": "LIR[}$U:$fxGaMXBs=ofQLS}R.oM",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_image_SORq2sADe.jpeg?updatedAt=1788992030806",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_image_SORq2sADe.jpeg?updatedAt=1788992030806",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_image_SORq2sADe.jpeg?updatedAt=1788992030806&tr=h-250,w-250"
+            }
+          ],
+          "venue_images": [
+            {
+              "blurhash": "LNLENU-;_3IU~qM{D%%MRjofj[M{",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_image_zrutdoawP.jpeg?updatedAt=1786040603760",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_image_zrutdoawP.jpeg?updatedAt=1786040603760",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_image_zrutdoawP.jpeg?updatedAt=1786040603760&tr=h-250,w-250"
+            }
+          ],
+          "hotspots_place": "Pure Barre Evanston",
+          "place_id": "660cc63c-bf93-4404-b749-919bafdf533c",
+          "place_slug": "pure-barre10",
+          "likes": null,
+          "url": "https://www.eventbrite.com/e/free-monthly-midlife-womens-wellness-group-tickets-1999282237993?aff=oddtdtcreator",
+          "domain": null,
+          "event_status": "SCHEDULED",
+          "start_date": "2026-10-15T19:30:00",
+          "end_date": "2026-10-15T20:30:00",
+          "updated_at": "2026-09-15T15:51:57.251693",
+          "created_at": "2026-09-09T17:13:44.963293",
+          "price": null,
+          "price_display": "",
+          "location": {
+            "lat": 42.0482036,
+            "lon": -87.68426399999998
+          },
+          "organizer": "Pure Barre Evanston",
+          "recurs": true,
+          "recurrence": "RDATE:20260928T193000\nRDATE:20261015T193000\nRDATE:20261116T193000\nRDATE:20261207T193000\nRDATE:20261208T193000\nRDATE:20270111T193000\nRDATE:20270112T193000\nRDATE:20270222T193000",
+          "recurrence_display": "Free Monthly Women's support group",
+          "text_full": "Midlife Women's Wellness Group -  September 28th Pure Barre Evanston Pure Pure Barre Pure Barre Evanston Barre Barre Evanston Evanston <p><span>What do dolphins have to do with hot flashes, life transitions, and becoming more boldly yourself? More than you'd think!</span></p>\n<p><span>Join\u00a0<strong>Kim Moldofsky- storyteller, Bold Belief Builder, and creator of\u00a0</strong><em><strong>Hot Flashes & Fierce Tales-\u00a0</strong></em>for an empowering conversation about navigating midlife through storytelling, reflection, and connection.</span></p>\n<p><span>Together, we'll explore finding meaning, resilience, and even a little joy in the messy, complicated, and surprising middle chapters of life.</span></p>\n<p><span>This event is free and open to all women in our community, so feel free to bring a friend.</span></p> Evanston, IL health Evanston, IL eventbrite.com eventbrite e free monthly midlife womens wellness group tickets 1999282237993",
+          "completeness_score": 0.94,
+          "score_combined": 0.764,
+          "is_approved": true,
+          "is_approved_crm": null,
+          "is_consecutive": false,
+          "is_featured": false,
+          "is_flagged": false,
+          "flag_reason": null,
+          "flag_severity": null,
+          "is_free": false,
+          "is_user_submitted": true,
+          "is_all_day": false,
+          "is_ongoing": true,
+          "data_source_identifier": null,
+          "data_source_url": "",
+          "approved_by": null,
+          "approved_at": "2026-09-09T17:13:44.962776",
+          "extra_data": {},
+          "score": null,
+          "performers": [],
+          "view_count": 0,
+          "timezone": "America/Chicago",
+          "has_image": true,
+          "is_recurring_occurrence": true,
+          "occurrences_truncated": false,
+          "expanded_through": "2027-04-03T23:59:59.999999"
+        }
+      },
+      {
+        "id": "526ca9d4-e21c-490d-bc4b-cbb8587abf28",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -87.68426399999998,
+            42.0482036
+          ]
+        },
+        "properties": {
+          "id": "526ca9d4-e21c-490d-bc4b-cbb8587abf28",
+          "name": "Midlife Women's Wellness Group -  September 28th",
+          "slug": "midlife-womens-wellness-group-september-28th_2026-11-16-19-30",
+          "description": "<p><span>What do dolphins have to do with hot flashes, life transitions, and becoming more boldly yourself? More than you'd think!</span></p>\n<p><span>Join\u00a0<strong>Kim Moldofsky- storyteller, Bold Belief Builder, and creator of\u00a0</strong><em><strong>Hot Flashes & Fierce Tales-\u00a0</strong></em>for an empowering conversation about navigating midlife through storytelling, reflection, and connection.</span></p>\n<p><span>Together, we'll explore finding meaning, resilience, and even a little joy in the messy, complicated, and surprising middle chapters of life.</span></p>\n<p><span>This event is free and open to all women in our community, so feel free to bring a friend.</span></p>",
+          "vibes": [],
+          "vibe_count": 0,
+          "tags": [
+            "Chicago, IL",
+            "events_feed_predicted",
+            "Cook County",
+            "Evanston, IL",
+            "events_feed",
+            "Evanston",
+            "Cook County, IL",
+            "Health & Beauty",
+            "Wellness",
+            "Community"
+          ],
+          "geo_tags": [],
+          "address": "910 Church St, Evanston, IL 60201",
+          "city": "Evanston, IL",
+          "neighborhood": null,
+          "categories": [
+            "health"
+          ],
+          "category_slugs": [
+            "health"
+          ],
+          "lists": [],
+          "venue_list_ids": [],
+          "is_out_of_boundary": false,
+          "vibemap_images": [
+            {
+              "blurhash": "LHR+gNqnxYxGV{bLt8spHloeNyof",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_image_fFYBQLjRU.jpeg?updatedAt=1788992028016",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_image_fFYBQLjRU.jpeg?updatedAt=1788992028016",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_image_fFYBQLjRU.jpeg?updatedAt=1788992028016&tr=h-250,w-250"
+            },
+            {
+              "blurhash": "LIR[}$U:$fxGaMXBs=ofQLS}R.oM",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_image_SORq2sADe.jpeg?updatedAt=1788992030806",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_image_SORq2sADe.jpeg?updatedAt=1788992030806",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_image_SORq2sADe.jpeg?updatedAt=1788992030806&tr=h-250,w-250"
+            }
+          ],
+          "venue_images": [
+            {
+              "blurhash": "LNLENU-;_3IU~qM{D%%MRjofj[M{",
+              "is_featured": false,
+              "original": "https://ik.imagekit.io/vibemap/original_images_image_zrutdoawP.jpeg?updatedAt=1786040603760",
+              "imagekit_url": "https://ik.imagekit.io/vibemap/original_images_image_zrutdoawP.jpeg?updatedAt=1786040603760",
+              "thumbnail_url": "https://ik.imagekit.io/vibemap/original_images_image_zrutdoawP.jpeg?updatedAt=1786040603760&tr=h-250,w-250"
+            }
+          ],
+          "hotspots_place": "Pure Barre Evanston",
+          "place_id": "660cc63c-bf93-4404-b749-919bafdf533c",
+          "place_slug": "pure-barre10",
+          "likes": null,
+          "url": "https://www.eventbrite.com/e/free-monthly-midlife-womens-wellness-group-tickets-1999282237993?aff=oddtdtcreator",
+          "domain": null,
+          "event_status": "SCHEDULED",
+          "start_date": "2026-11-16T19:30:00",
+          "end_date": "2026-11-16T20:30:00",
+          "updated_at": "2026-09-15T15:51:57.251693",
+          "created_at": "2026-09-09T17:13:44.963293",
+          "price": null,
+          "price_display": "",
+          "location": {
+            "lat": 42.0482036,
+            "lon": -87.68426399999998
+          },
+          "organizer": "Pure Barre Evanston",
+          "recurs": true,
+          "recurrence": "RDATE:20260928T193000\nRDATE:20261015T193000\nRDATE:20261116T193000\nRDATE:20261207T193000\nRDATE:20261208T193000\nRDATE:20270111T193000\nRDATE:20270112T193000\nRDATE:20270222T193000",
+          "recurrence_display": "Free Monthly Women's support group",
+          "text_full": "Midlife Women's Wellness Group -  September 28th Pure Barre Evanston Pure Pure Barre Pure Barre Evanston Barre Barre Evanston Evanston <p><span>What do dolphins have to do with hot flashes, life transitions, and becoming more boldly yourself? More than you'd think!</span></p>\n<p><span>Join\u00a0<strong>Kim Moldofsky- storyteller, Bold Belief Builder, and creator of\u00a0</strong><em><strong>Hot Flashes & Fierce Tales-\u00a0</strong></em>for an empowering conversation about navigating midlife through storytelling, reflection, and connection.</span></p>\n<p><span>Together, we'll explore finding meaning, resilience, and even a little joy in the messy, complicated, and surprising middle chapters of life.</span></p>\n<p><span>This event is free and open to all women in our community, so feel free to bring a friend.</span></p> Evanston, IL health Evanston, IL eventbrite.com eventbrite e free monthly midlife womens wellness group tickets 1999282237993",
+          "completeness_score": 0.94,
+          "score_combined": 0.764,
+          "is_approved": true,
+          "is_approved_crm": null,
+          "is_consecutive": false,
+          "is_featured": false,
+          "is_flagged": false,
+          "flag_reason": null,
+          "flag_severity": null,
+          "is_free": false,
+          "is_user_submitted": true,
+          "is_all_day": false,
+          "is_ongoing": true,
+          "data_source_identifier": null,
+          "data_source_url": "",
+          "approved_by": null,
+          "approved_at": "2026-09-09T17:13:44.962776",
+          "extra_data": {},
+          "score": null,
+          "performers": [],
+          "view_count": 0,
+          "timezone": "America/Chicago",
+          "has_image": true,
+          "is_recurring_occurrence": true,
+          "occurrences_truncated": false,
+          "expanded_through": "2027-04-03T23:59:59.999999"
+        }
+      }
+    ]
+  }
+}

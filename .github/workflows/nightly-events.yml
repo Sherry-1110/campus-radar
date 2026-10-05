@@ -4,9 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/ingestion/src/coordinates.ts'
-      - 'apps/ingestion/src/census.ts'
-      - 'apps/ingestion/src/categories.ts'
+      - 'apps/ingestion/src/**'
       - 'apps/web/src/lib/geocoding.ts'
       - '.github/workflows/nightly-events.yml'
   schedule:
@@ -22,10 +20,14 @@ on:
         description: 'Write events to Supabase (false previews source coverage only)'
         type: boolean
         default: false
+      replay_run:
+        description: 'Optional retained pipeline run UUID to replay (select its source) '
+        type: string
+        default: ''
       source:
         description: 'Source to run (scheduled runs always run all sources)'
         type: choice
-        options: [all, planitpurple, bienen, choose-chicago, chicago-roundups, garage, nusports]
+        options: [all, planitpurple, bienen, choose-chicago, chicago-roundups, garage, nusports, cats-on-campus, downtown-evanston, space, do312, second-city]
         default: all
 
 permissions:
@@ -38,11 +40,11 @@ concurrency:
 jobs:
   sync:
     name: Sync ${{ matrix.source }}
-    if: ${{ github.event_name != 'push' && !inputs.coordinates_only }}
+    if: ${{ !inputs.coordinates_only }}
     strategy:
       fail-fast: false
       matrix:
-        source: ${{ fromJSON(inputs.source && inputs.source != 'all' && format('["{0}"]', inputs.source) || '["planitpurple","bienen","choose-chicago","chicago-roundups","garage","nusports"]') }}
+        source: ${{ fromJSON(inputs.source && inputs.source != 'all' && format('["{0}"]', inputs.source) || '["planitpurple","bienen","choose-chicago","chicago-roundups","garage","nusports","cats-on-campus","downtown-evanston","space","do312","second-city"]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -64,12 +66,18 @@ jobs:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           JEV_MODE: apply
-          APPLY: ${{ github.event_name == 'schedule' || inputs.apply }}
+          REPLAY_RUN: ${{ inputs.replay_run }}
+          APPLY: ${{ github.event_name == 'schedule' || github.event_name == 'push' || inputs.apply }}
         run: |
+          replay=()
+          if [ -n "$REPLAY_RUN" ]; then
+            if [ "${{ inputs.source }}" = "all" ]; then echo "Replay requires its specific source"; exit 1; fi
+            replay=(--replay "$REPLAY_RUN")
+          fi
           if [ "$APPLY" = "true" ]; then
-            npm run sync:events -- --apply --source "${{ matrix.source }}"
+            npm run sync:events -- --apply --source "${{ matrix.source }}" "${replay[@]}"
           else
-            npm run sync:events -- --dry-run --source "${{ matrix.source }}"
+            npm run sync:events -- --dry-run --source "${{ matrix.source }}" "${replay[@]}"
           fi
       - uses: actions/upload-artifact@v4
         if: always()

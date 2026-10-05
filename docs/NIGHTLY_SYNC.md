@@ -36,7 +36,7 @@ npm run sync:events -- --dry-run --source bienen
 Dry-run reads the sources and reports validated event/image counts without database
 access. It is a coverage preview, not a prediction of database insert/update counts.
 The summary is written to `apps/ingestion/sync-report.json` by default. `--report`
-can choose another path. `--source` accepts `all`, `planitpurple`, `bienen`, `choose-chicago`, or `garage`.
+can choose another path. `--source` accepts `all` or any enabled adapter key in `apps/ingestion/src/registry.ts`.
 
 For writes, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (modern `sb_secret_…` key)
 or `SUPABASE_SERVICE_ROLE_KEY` (legacy backend JWT) in the trusted environment, then:
@@ -56,7 +56,7 @@ For GitHub Actions:
 3. Push the workflow to the default branch. Run **Nightly event sync** manually with
    `apply=false` for a coverage check, then with `apply=true` for the first import.
 4. Repeat the apply run to verify zero inserts/updates when source data is unchanged.
-   Scheduled runs use apply mode. Review the summary/artifact for errors and conflicts.
+   Scheduled runs and pushes changing ingestion code/workflow use apply mode. Review the summary/artifact for errors and conflicts.
 
 The workflow has a 30-minute timeout, serializes overlapping runs, and retains
 summary artifacts for 14 days. A failed source produces a failed job but does not
@@ -99,7 +99,7 @@ Actions status if updates stop. No artificial keepalive commits are generated.
   of the entire source. A partially failed run is never reported as healthy.
 - Stored text respects database length limits; longer text is abbreviated with an
   ellipsis and the original source remains linked. Unknown fees display “See details.”
-- Images are source-hosted event images, not copied or AI-generated posters. Missing
+- Selected source images are copied to Supabase Storage as described below. Missing
   or failed images use the existing category illustration. No promise of a real poster
   for every event is made when the organizer supplied none.
 - All-day events use an inclusive local end-of-day internally, proper all-day calendar
@@ -313,7 +313,7 @@ No autonomous browsing, embedding database, generative rewriting, or hosting mig
 part of this first integration.
 
 The production workflow enables `JEV_MODE=apply`. Manual runs can select one source or
-all sources; scheduled runs always use all four independent adapters. The write checkbox
+all sources; scheduled runs always use all enabled independent adapters. The write checkbox
 controls database writes separately from semantic mode. Original-page work interleaves
 organizers before repeated occurrences, prioritizes their nearest events, then rotates ties daily. Evaluation or
 budget failures preserve prior verified enrichment when its calendar baseline is unchanged.
@@ -381,3 +381,67 @@ retries behind untried text; paginated reads avoid the API row cap. API/database
 reported separately and never roll back source ingestion. No API key reaches the
 frontend. Changes to the model, prompts or taxonomy require an evaluation and a
 new cache version in both the worker and migration.
+
+
+## Shared staged pipeline (October 5, 2026)
+
+Every enabled source now follows the same durable stages:
+
+1. Capture raw publisher responses before parsing into `private.raw_source_documents`,
+   physically partitioned into one `private.raw_<source>` table per source. SHA-256
+   content addressing shares unchanged bodies. `source_run_documents` preserves
+   each run's request manifest and fixed collection clock.
+2. Validate and store uniform candidates in `private.source_events`. The complete
+   normalized snapshot must pass before enrichment/publication. A source parser failure
+   preserves captured responses for debugging and replay without changing canonical events.
+3. Resolve original event pages and enrich descriptions/posters. Successful enrichment
+   of unchanged input is reused for seven days; changed inputs, processor versions,
+   expired results and unavailable pages are processed again. Store the enriched result.
+4. Reconcile staged candidates through the existing manual-edit-safe, authority-aware
+   canonical writer. Preserve upstream occurrence IDs and all internal provenance;
+   public source links continue to use the most original verified page. Canonical
+   `events` is the standardized event table; `event_coordinates`, `events.categories`
+   and stored poster URLs supply its shared metadata.
+5. Run existing shared coordinate and Jev category jobs across canonical events.
+   Their caches reuse venue lookups and identical event text across all sources.
+
+`private.source_pipeline_runs` records the last completed stage, status, expected
+count, processor version and capture time. Only backend service credentials can
+read raw payloads or call stage RPCs. The latest three completed raw runs per source
+are retained, including failures; unreferenced bodies are then removed. Canonical
+records and latest standardized source records are retained independently.
+A partially published run remains failed; committed batches can safely be repeated.
+Only explicit SQL statement timeouts retry with smaller batches.
+
+Replay a retained run using the same source clock and captured feed/original HTML:
+
+```sh
+npm run sync:events -- --dry-run --replay <pipeline-run-uuid>
+npm run sync:events -- --apply --replay <pipeline-run-uuid>
+```
+
+Replay requires backend database credentials even for preview. It never falls back
+to live source fetching when a raw document is missing. Optional unavailable
+organizer pages retain the existing fallback behavior. Poster copying and Jev
+classification are still separate network services; replay is not a frozen model
+prediction. GitHub's manual workflow accepts `replay_run` plus its specific `source`.
+A parser fix can therefore reprocess retained input without scraping it again. Apply replay rejects captures older than the latest successful source run, preventing historical schedules from overwriting newer data; those captures remain available for preview. Cached organizer results carry their supporting raw-document references into each reused run, and interrupted runs join the same retention policy after the next attempt.
+
+| New adapter | Coverage and limits | Upstream identity |
+| --- | --- | --- |
+| `cats-on-campus` | Public Northwestern listing and detail pages; hidden locations stay unknown | Public event ID |
+| `downtown-evanston` | Publisher's Vibemap event region; 180-day query, only returned recurrence instances | Event ID plus explicit occurrence start for recurring events |
+| `space` | Official widget's published Ticketmaster and legacy Eventbrite feeds | Ticketmaster/Eventbrite event ID |
+| `do312` | Next 14 Chicago dates, all dated-listing pages; ambiguous weekly/series cards skipped | Numeric occurrence ID |
+| `second-city` | Official public Chicago GraphQL calendar; performances within 90-day lookback and published future | Ticket instance ID |
+
+Music Box has a raw partition and disabled catalog entry. Its calendar currently
+returns an unusable Sucuri redirect and no verified public export has been found;
+it is not scheduled or represented as a successful source.
+
+Deduplication stays conservative: stable source identity first, then a normalized
+original event URL or exact normalized title plus a known venue and matching
+start time. Tracking parameters do not define identity. Ambiguous matches remain
+separate, and different performance times are never merged solely by title/date.
+Jev remains responsible for categories and evidence selection, not untested fuzzy
+merges. An absent source listing never implies cancellation.

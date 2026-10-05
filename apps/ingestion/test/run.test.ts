@@ -85,3 +85,16 @@ test('network allowlists and source registry keep adapters isolated', async () =
   assert.equal(new Set(sources.map(source => source.id)).size, sources.length)
   await assert.rejects(runner.fetchText('https://www.choosechicago.com/events/', ['planitpurple.northwestern.edu']), /Unapproved/)
 })
+
+
+test('statement timeouts retry smaller rolled-back batches without duplicating committed work', async () => {
+  const items = Array.from({ length: 125 }, (_, n) => ({ external_id: String(n) })) as Parameters<typeof runner.writeBatches>[1]
+  const committed: string[] = []
+  const stats = await runner.writeBatches('Timeout fixture', items, async (_source, batch) => {
+    if (batch.length > 30) throw Object.assign(new Error('statement timeout'), { code: '57014' })
+    committed.push(...batch.map(i => i.external_id))
+    return { inserted: batch.length }
+  })
+  assert.equal(stats.inserted, 125)
+  assert.deepEqual(committed, items.map(i => i.external_id))
+})

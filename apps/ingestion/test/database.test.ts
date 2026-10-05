@@ -277,5 +277,7 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
       await db.exec('reset role')
     }
 
+    await db.exec(await readFile(new URL('../../../supabase/tests/source_pipeline.sql', import.meta.url), 'utf8'))
+
   } finally { await db.close() }
 })

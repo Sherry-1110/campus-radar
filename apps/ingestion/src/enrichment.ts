@@ -121,7 +121,8 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   const event=matching.length===1?matching[0]:undefined
   if(events.length && !event) return null
   const heading=$('meta[property="og:title"]').attr('content')||$('h1').first().text()||$('title').text()
-  const body=$('article .sidearm-story-body, .sidearm-story-body, [itemprop="articleBody"], article').first().clone()
+  const do312=new URL(pageUrl).hostname==='do312.com'
+  const body=$(do312?'.ds-event-description-inner':'article .sidearm-story-body, .sidearm-story-body, [itemprop="articleBody"], article').first().clone()
   const content=body.length?body:$('main,[role="main"]').first().clone()
   content.find('script,style,nav,header,footer,aside,form,button,[aria-hidden="true"],.section-sponsors,.section-text-cta,.section-cards,.section-large-cards').remove()
   const titleWords=new Set(words(heading))
@@ -173,6 +174,10 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
     // The page is about this event but offers no specific share image: use the picture beside its title.
     ||(item.data.cover_image_url?null:nearbyImage(html,pageUrl,item.data.title))
   const next=event?[event.url,...(Array.isArray(event.sameAs)?event.sameAs:[event.sameAs])].map(v=>link(v,pageUrl)).filter((v):v is string=>Boolean(v&&v!==pageUrl)):[]
+  if(do312 && pageMatches) {
+    const organizer=link($('.ds-event-detail .ds-buy-tix').first().attr('href'),pageUrl)
+    if(organizer && organizer!==pageUrl) next.unshift(organizer)
+  }
   for(const a of content.find('a[href]').toArray()) {
     if(/^(?:more (?:info(?:rmation)?|details)|full details|event website|official (?:event|website)|learn more)$/i.test(text($(a).text()))) {
       const target=link($(a).attr('href'),pageUrl)

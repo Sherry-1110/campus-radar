@@ -1,7 +1,8 @@
 import { appendFile, writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
 import { setTimeout as delay } from 'node:timers/promises'
-import { createClient } from '@supabase/supabase-js'
+import { captureSource, loadReplay, pipelineRpc, PROCESSOR_VERSION, stageItems } from './pipeline.ts'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { storePosters } from './posters.ts'
 import { enrichSource } from './enrichment.ts'
 import { fetchOriginal } from './original-fetch.ts'
@@ -147,45 +148,81 @@ export async function runSync(sources: Source[], apply: Apply | null, monitor?: 
 
 export async function writeBatches(source: string, items: Candidate[], write: Apply) {
   const totals: Record<string, number> = {}
-  // ponytail: atomic per 100 items; the workflow result records whole-source
+  // ponytail: atomic per batch; the workflow result records whole-source
   // success. A failed later batch leaves safe, idempotently resumable progress.
-  for (let offset = 0; offset < items.length; offset += 100) {
+  let batchSize = 100
+  for (let offset = 0; offset < items.length;) {
+    const batch = items.slice(offset, offset + batchSize)
     try {
-      const stats = await write(source, items.slice(offset, offset + 100))
+      const stats = await write(source, batch)
       for (const [key, value] of Object.entries(stats)) totals[key] = (totals[key] ?? 0) + value
+      offset += batch.length
     } catch (error) {
+      // PostgreSQL canceled and rolled back this transaction. Retry fewer items,
+      // keeping earlier commits and leaving permanent/ambiguous failures visible.
+      if (error instanceof Error && 'code' in error && error.code === '57014' && batch.length > 1) {
+        batchSize = Math.floor(batch.length / 2)
+        console.warn(`${source}: database statement timed out; retrying at ${offset} with batches of ${batchSize}`)
+        continue
+      }
       throw new Error(`${offset} candidates committed; safe to retry. ${error instanceof Error ? error.message : 'Batch failed'}`)
     }
   }
   return totals
 }
 
+async function enrich(base: SourceResult, fetchPage: typeof fetchOriginal, now: Date) {
+  const mode = process.env.JEV_MODE
+  if (!['shadow', 'apply'].includes(mode || '') || !base.items.some(i => i.related_url)) return enrichSource(base, fetchPage, now)
+  const options = { key: process.env.TYPESAFE_API_KEY || '', cacheDir: '.jev-cache' }
+  const evaluation = await evaluateJev(createJev({ ...options, maxRequests: 12 }))
+  console.log(JSON.stringify({ semantic_evaluation: evaluation }))
+  const jev = createJev(options)
+  const result = await enrichSource(base, fetchPage, now, evaluation.passed ? { mode: mode as 'shadow' | 'apply', select: jev.select } : undefined)
+  if (!evaluation.passed && mode === 'apply') for (const item of result.items) if (item.enrichment) item.enrichment.status = 'unavailable'
+  result.semantic = { mode: mode!, evaluation_passed: evaluation.passed, stats: jev.stats, samples: result.items.flatMap(i => (i.semantic || []).map(a => ({ external_id: i.external_id, title: i.data.title, outcome: a.outcome, relationship: a.relationship, selected_text: (a.selected_text || []).slice(0, 4).map(text => text.slice(0, 800)) }))).slice(0, 30) }
+  if (!evaluation.passed) result.warnings.push('Jev evaluation failed or API key unavailable; semantic enrichment disabled, calendar and rule-based updates continued')
+  if (jev.stats.failed || jev.stats.deferred) result.warnings.push(`Jev: ${jev.stats.failed} unavailable and ${jev.stats.deferred} budget-deferred decisions; previous enrichment retained where possible`)
+  return result
+}
+
 async function main() {
   const { values } = parseArgs({ options: {
     apply: { type: 'boolean', default: false }, 'dry-run': { type: 'boolean', default: false },
-    source: { type: 'string', default: 'all' }, report: { type: 'string', default: 'sync-report.json' },
+    replay: { type: 'string' }, source: { type: 'string', default: 'all' }, report: { type: 'string', default: 'sync-report.json' },
   } })
   if (values.apply && values['dry-run']) throw new Error('Choose --apply or --dry-run')
   if (!['all', ...registry.map(source => source.id)].includes(values.source)) throw new Error('Unknown --source')
   let apply: Apply | null = null
   let monitor: Monitor | undefined
-  if (values.apply) {
+  const clock = new Date()
+  const runIds = new Map<string, string>()
+  let client: SupabaseClient | undefined
+  let replay: Awaited<ReturnType<typeof loadReplay>> | undefined
+  if (values.apply || values.replay) {
     const url = process.env.SUPABASE_URL
     const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !key) throw new Error('Apply requires SUPABASE_URL and a backend Supabase secret')
     if (key.startsWith('sb_publishable_')) throw new Error('A publishable key cannot run the importer')
-    const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-    const runIds = new Map<string, string>()
+    client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+    if (values.replay) {
+      replay = await loadReplay(client, values.replay)
+      if (values.source !== 'all' && values.source !== replay.source_key) throw new Error('Replay source does not match --source')
+      values.source = replay.source_key
+      clock.setTime(Date.parse(replay.captured_at))
+    }
+  }
+  if (values.apply && client) {
+    const db = client
     monitor = {
       start: async source => {
         const runUrl = process.env.GITHUB_RUN_ID ? `https://github.com/Sherry-1110/campus-radar/actions/runs/${process.env.GITHUB_RUN_ID}` : null
-        const { data, error } = await client.rpc('begin_source_sync', { p_source_name: source, p_run_url: runUrl })
-        if (error) throw new Error(`Cannot start source monitor: ${error.code}`)
+        const data = await pipelineRpc<string>(db, 'begin_source_pipeline', { p_source_name: source, p_run_url: runUrl, p_captured_at: clock.toISOString(), p_version: PROCESSOR_VERSION })
         runIds.set(source, data as string)
         return data as string
       },
       finish: async (runId, summary) => {
-        const { error } = await client.rpc('finish_source_sync', {
+        const { error } = await db.rpc('finish_source_pipeline', {
           p_run_id: runId, p_status: summary.status === 'applied' ? 'succeeded' : 'failed',
           p_summary: { ...summary.changes, candidates: summary.candidates, posters: summary.posters, error_code: summary.error_code,
             detail_checked: summary.details?.checked ?? 0, detail_enriched: summary.details?.enriched ?? 0, detail_failed: summary.details?.failed ?? 0 },
@@ -194,30 +231,46 @@ async function main() {
       },
     }
     apply = async (source, items) => {
-      const { failures: _, ...posters } = await storePosters(client, items.flatMap(item => item.data.cover_image_url ? [item.data.cover_image_url] : []), undefined, 5 * 60_000)
+      const { failures: _, ...posters } = await storePosters(db, items.flatMap(item => item.data.cover_image_url ? [item.data.cover_image_url] : []), undefined, 5 * 60_000)
       console.log(JSON.stringify({ poster_storage: posters }))
       return writeBatches(source, items, async (name, batch) => {
-        const { data, error } = await client.rpc('sync_source_events', { p_source_name: name, p_items: batch, p_run_id: runIds.get(name) })
-        if (error) throw new Error(`Database sync ${error.code}: ${error.message}`)
+        const { data, error } = await db.rpc('publish_staged_events', { p_external_ids: batch.map(item => item.external_id), p_run_id: runIds.get(name) })
+        if (error) throw Object.assign(new Error(`Database sync ${error.code}: ${error.message}`), { code: error.code })
         return data as Record<string, number>
       })
     }
   }
   const sources = registry.filter(source => values.source === 'all' || values.source === source.id)
     .map(source => ({ name: source.name, fetch: async () => {
-      const base=await source.fetch(url => fetchText(url, source.hosts))
-      const mode=process.env.JEV_MODE
-      if(!['shadow','apply'].includes(mode||'')||!base.items.some(i=>i.related_url))return enrichSource(base,fetchOriginal)
-      const options={key:process.env.TYPESAFE_API_KEY||'',cacheDir:'.jev-cache'}
-      const evaluation=await evaluateJev(createJev({...options,maxRequests:12}))
-      console.log(JSON.stringify({semantic_evaluation:evaluation}))
-      const jev=createJev(options)
-      const result=await enrichSource(base,fetchOriginal,new Date(),evaluation.passed?{mode:mode as 'shadow'|'apply',select:jev.select}:undefined)
-      // A failed model evaluation must not replace prior verified details with the fallback.
-      if(!evaluation.passed&&mode==='apply') for(const item of result.items) if(item.enrichment)item.enrichment.status='unavailable'
-      result.semantic={mode:mode!,evaluation_passed:evaluation.passed,stats:jev.stats,samples:result.items.flatMap(i=>(i.semantic||[]).map(a=>({external_id:i.external_id,title:i.data.title,outcome:a.outcome,relationship:a.relationship,selected_text:(a.selected_text||[]).slice(0,4).map(text=>text.slice(0,800))}))).slice(0,30)}
-      if(!evaluation.passed)result.warnings.push('Jev evaluation failed or API key unavailable; semantic enrichment disabled, calendar and rule-based updates continued')
-      if(jev.stats.failed||jev.stats.deferred)result.warnings.push(`Jev: ${jev.stats.failed} unavailable and ${jev.stats.deferred} budget-deferred decisions; previous enrichment retained where possible`)
+      const run = runIds.get(source.name)
+      const capture = captureSource(async document => {
+        if (client && run) await pipelineRpc(client, 'store_source_document', {
+          p_run_id: run, p_scope: document.scope, p_request_url: document.request_url,
+          p_response_url: document.response_url, p_body: document.body,
+        })
+      }, replay?.documents)
+      const base = await source.fetch(capture.text(url => fetchText(url, source.hosts)), clock)
+      capture.check()
+      base.items = base.items.map(normalizeCandidate)
+      if (!base.items.length) throw new Error('Refusing empty source snapshot')
+      if (new Set(base.items.map(i => i.external_id)).size !== base.items.length) throw new Error('Duplicate source IDs')
+      const cached = new Map<string, Candidate>()
+      if (client && run) {
+        await stageItems(client, run, base.items, 'normalized')
+        if (!replay) for (let offset = 0; offset < base.items.length; offset += 100) {
+          const rows = await pipelineRpc<Candidate[]>(client, 'get_staged_enrichment', {
+            p_run_id: run, p_external_ids: base.items.slice(offset, offset + 100).map(i => i.external_id),
+          })
+          for (const item of rows) cached.set(item.external_id, item)
+        }
+      }
+      const pending = { ...base, items: base.items.filter(i => !cached.has(i.external_id)) }
+      const result = await enrich(pending, capture.original(fetchOriginal), clock)
+      capture.check()
+      const enriched = new Map(result.items.map(i => [i.external_id, i]))
+      result.items = base.items.map(i => normalizeCandidate(cached.get(i.external_id) || enriched.get(i.external_id)!))
+      if (cached.size) result.warnings.push(`Reused verified enrichment for ${cached.size} unchanged source records`)
+      if (client && run) await stageItems(client, run, result.items, 'enriched')
       return result
     } }))
   const report = await runSync(sources, apply, monitor)

@@ -8,7 +8,7 @@ import { record, text, string } from './sources/shared.ts'
 import type { Candidate } from './types.ts'
 
 const MODEL='jev-1.13.0'
-const VERSION='event-evidence-v2'
+const VERSION='event-evidence-v3'
 type Block={id:string;heading:string;text:string}
 type Image={id:string;url:string;context:string}
 type Link={id:string;url:string;label:string}
@@ -24,14 +24,15 @@ export function buildEvidence(html:string,url:string,item:Candidate) {
   const structured_events=$('script[type="application/ld+json"]').toArray().flatMap(el=>{try{return nodes(JSON.parse($(el).text()))}catch{return []}})
     .filter(n=>(Array.isArray(n['@type'])?n['@type']:[n['@type']]).some(t=>string(t).endsWith('Event'))).slice(0,6)
     .map(n=>({name:text(n.name).slice(0,250),start:string(n.startDate).slice(0,50),end:string(n.endDate).slice(0,50),description:text(n.description).slice(0,700),location:text(record(n.location).name||n.location).slice(0,250)}))
-  const root=$('article,main,[role="main"]').first().clone()
+  const do312=new URL(url).hostname==='do312.com'
+  const root=$(do312?'.ds-event-detail':'article,main,[role="main"]').first().clone()
   const body=root.length?root:$('body').clone()
   body.find('script,style,nav,header,footer,aside,form,button,[aria-hidden="true"],.breadcrumb,.breadcrumbs,.section-sponsors,.section-text-cta,.section-cards,.section-large-cards').remove()
   const blocks:Block[]=[];let heading='';let size=0
-  for(const el of body.find('h1,h2,h3,h4,p,li').toArray()) {
+  for(const el of body.find(do312?'h1,h2,h3,h4,p,li,.ds-event-description-inner':'h1,h2,h3,h4,p,li').toArray()) {
     const node=$(el),value=text(node.html())
     if(/^h[1-4]$/.test(el.tagName)){heading=value.slice(0,200);continue}
-    if(node.is('li')&&node.find('p,li').length) continue
+    if(node.is('li,.ds-event-description-inner')&&node.find('p,li').length) continue
     if(value.length<30||value.length>2000||blocks.some(b=>b.text===value)) continue
     if(blocks.length>=32||size+value.length>16000) break
     blocks.push({id:`b${blocks.length}`,heading,text:value});size+=value.length
@@ -42,6 +43,10 @@ export function buildEvidence(html:string,url:string,item:Candidate) {
   addImage($('meta[property="og:image"]').attr('content'),`Page social image for ${title}`)
   for(const el of body.find('img').toArray()){const n=$(el);addImage(image(n.attr('data-src'),url)||n.attr('src'),[n.attr('alt'),n.closest('figure').find('figcaption').text()].filter(Boolean).join(' '))}
   const links:Link[]=[]
+  if(do312) {
+    const button=$('.ds-event-detail .ds-buy-tix').first(),target=link(button.attr('href'),url)
+    if(target&&target!==url) links.push({id:'l0',url:target,label:(text(button.text())||'Buy tickets (publisher event button)').slice(0,180)})
+  }
   for(const el of body.find('a[href]').toArray()) {
     const n=$(el),label=text(n.text()),target=link(n.attr('href'),url)
     if(target&&target!==url&&label&&links.length<20&&!links.some(l=>l.url===target)) links.push({id:`l${links.length}`,url:target,label:label.slice(0,180)})
