@@ -10,6 +10,7 @@ import { CategoryTabs, FilterBar } from '@/components/FilterBar'
 import { buttonPrimary, buttonSecondary, StateMessage } from '@/components/StateMessage'
 import { useEvents, useFeaturedEvents, useMapEvents } from '@/lib/events'
 import { matchesNothing } from '@/lib/filters'
+import { useLang } from '@/lib/i18n'
 import { parseBounds, writeBounds, type MapBounds } from '@/lib/geo'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 import { isMobileViewport, useEventSelection } from '@/lib/useEventSelection'
@@ -17,6 +18,7 @@ import { useFilters } from '@/lib/useFilters'
 
 export function HomePage() {
   useDocumentTitle()
+  const { t } = useLang()
   const { filters, update, clear, isFiltered } = useFilters()
   const [params, setParams] = useSearchParams()
   const [showMap, setShowMap] = useState(false)
@@ -68,24 +70,24 @@ export function HomePage() {
   <div className="mx-auto max-w-[1600px] px-1.5 py-6 sm:px-6 sm:py-8">
     <FilterBar filters={filters} onChange={update} onSearch={setQuery} mapOn={showMap} onToggleMap={() => { setShowMap(value => !value); setMapActivated(true) }} />
     <CategoryTabs filters={filters} onChange={update} />
-    {bounds && <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span>Showing mapped events in your selected area. Unmapped venues are excluded.</span><button type="button" className="min-h-11 font-bold text-brand-700 underline" onClick={() => searchArea(null)}>Clear area</button></div>}
+    {bounds && <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span>{t('Showing mapped events in your selected area. Unmapped venues are excluded.')}</span><button type="button" className="min-h-11 font-bold text-brand-700 underline" onClick={() => searchArea(null)}>{t('Clear area')}</button></div>}
     <div className={`discovery-layout ${showMap ? 'with-map' : ''} mt-5`}>
-      <section aria-label="Events" className={`${showMap ? 'hidden lg:block' : ''} min-w-0`}>
+      <section aria-label={t('Events')} className={`${showMap ? 'hidden lg:block' : ''} min-w-0`}>
         <p className="mb-3 px-1.5 text-sm text-ink-muted sm:mb-5 sm:px-0" role="status" aria-live="polite">
-          {query.isPending ? 'Loading events' : query.isError && !items.length ? 'Events unavailable' : total ? `${total} events · ${items.length} shown` : '0 events'}
+          {query.isPending ? t('Loading events') : query.isError && !items.length ? t('Events unavailable') : total ? t('{0} events · {1} shown', total, items.length) : t('0 events')}
         </p>
-        {query.isPending && <ul className="event-grid" aria-label="Loading events">{Array.from({ length: 6 }, (_, i) => <li key={i}><EventCardSkeleton /></li>)}</ul>}
-        {query.isError && !items.length && <StateMessage icon={CloudOff} tone="error" title="Couldn't load events" action={<button type="button" onClick={() => query.refetch()} className={buttonPrimary}>Try again</button>}>Check your connection and try again.</StateMessage>}
+        {query.isPending && <ul className="event-grid" aria-label={t('Loading events')}>{Array.from({ length: 6 }, (_, i) => <li key={i}><EventCardSkeleton /></li>)}</ul>}
+        {query.isError && !items.length && <StateMessage icon={CloudOff} tone="error" title={t("Couldn't load events")} action={<button type="button" onClick={() => query.refetch()} className={buttonPrimary}>{t('Try again')}</button>}>{t('Check your connection and try again.')}</StateMessage>}
         {query.isSuccess && !items.length && <StateMessage icon={nothingSelected ? ListChecks : CalendarX}
-          title={nothingSelected ? 'Nothing selected' : isFiltered || bounds ? 'No events match your filters' : 'No events in the next 7 days'}
-          action={<button type="button" onClick={clear} className={buttonPrimary}>Reset filters</button>}>
-          Try another date, category, or area.
+          title={nothingSelected ? t('Nothing selected') : isFiltered || bounds ? t('No events match your filters') : t('No events in the next 7 days')}
+          action={<button type="button" onClick={clear} className={buttonPrimary}>{t('Reset filters')}</button>}>
+          {t('Try another date, category, or area.')}
         </StateMessage>}
         <EventGrid items={items} onSelect={selection.open} />
         {items.length > 0 && <div ref={loadMoreRef} className="flex min-h-20 items-center justify-center py-6 text-sm text-ink-muted">
-          {query.isFetchNextPageError ? <div role="alert">Couldn't load more events. <button type="button" className={buttonSecondary} onClick={() => query.fetchNextPage()}>Try again</button></div>
-            : query.isRefetchError ? <div role="alert">Couldn't refresh events. <button type="button" className={buttonSecondary} onClick={() => query.refetch()}>Try again</button></div>
-              : <p role="status">{query.isFetchingNextPage ? 'Loading more events…' : query.hasNextPage ? 'Scroll for more events' : 'You’ve seen all events matching these filters.'}</p>}
+          {query.isFetchNextPageError ? <div role="alert">{t("Couldn't load more events.")} <button type="button" className={buttonSecondary} onClick={() => query.fetchNextPage()}>{t('Try again')}</button></div>
+            : query.isRefetchError ? <div role="alert">{t("Couldn't refresh events.")} <button type="button" className={buttonSecondary} onClick={() => query.refetch()}>{t('Try again')}</button></div>
+              : <p role="status">{query.isFetchingNextPage ? t('Loading more events…') : query.hasNextPage ? t('Scroll for more events') : t('You’ve seen all events matching these filters.')}</p>}
         </div>}
       </section>
       <aside className={`${showMap ? '' : 'hidden'} map-column`}>

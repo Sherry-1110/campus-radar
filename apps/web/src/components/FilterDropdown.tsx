@@ -1,6 +1,7 @@
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { allSelected, type FilterOption } from '@/lib/filters'
+import { useLang } from '@/lib/i18n'
 
 interface FilterDropdownProps<T extends string> {
   label: string
@@ -19,11 +20,11 @@ interface FilterDropdownProps<T extends string> {
   renderExtra?: (value: T) => ReactNode
 }
 
-function defaultSummary<T extends string>(options: FilterOption<T>[], selected: T[]): string {
-  if (allSelected(selected, options.map((o) => o.value))) return 'All'
-  if (selected.length === 0) return 'None'
-  if (selected.length === 1) return options.find((o) => o.value === selected[0])?.label ?? '1 selected'
-  return `${selected.length} selected`
+function defaultSummary<T extends string>(options: FilterOption<T>[], selected: T[], t: (text: string, ...args: number[]) => string): string {
+  if (allSelected(selected, options.map((o) => o.value))) return t('All')
+  if (selected.length === 0) return t('None')
+  if (selected.length === 1) { const label = options.find((o) => o.value === selected[0])?.label; return label ? t(label) : t('1 selected') }
+  return t('{0} selected', selected.length)
 }
 
 export function FilterDropdown<T extends string>({
@@ -37,6 +38,7 @@ export function FilterDropdown<T extends string>({
   changed = false,
   renderExtra,
 }: FilterDropdownProps<T>) {
+  const { t } = useLang()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -88,10 +90,10 @@ export function FilterDropdown<T extends string>({
         onClick={() => setOpen((o) => !o)}
         className={`flex min-h-11 w-full items-center max-sm:justify-center gap-1 rounded-xl border border-line bg-surface px-2 text-left text-[13px] shadow-card sm:gap-2 sm:px-3 sm:text-sm motion-safe:transition hover:border-brand-300 aria-expanded:border-brand-700 ${changed ? 'max-sm:border-brand-700 max-sm:bg-brand-50' : ''}`}
       >
-        <span className="shrink-0 font-semibold text-ink-muted">{label}</span>
-        {changed && <span className="size-2 shrink-0 rounded-full bg-brand-700 sm:hidden"><span className="sr-only">(changed)</span></span>}
+        <span className="shrink-0 font-semibold text-ink-muted">{t(label)}</span>
+        {changed && <span className="size-2 shrink-0 rounded-full bg-brand-700 sm:hidden"><span className="sr-only">{t('(changed)')}</span></span>}
         <span className={`min-w-0 flex-1 truncate font-bold text-ink ${labelOnlyOnMobile ? 'hidden sm:block' : ''}`}>
-          {summary ?? defaultSummary(options, selected)}
+          {summary ?? defaultSummary(options, selected, t)}
         </span>
         <ChevronDown
           className={`size-3.5 shrink-0 text-ink-muted motion-safe:transition-transform sm:size-4 ${open ? 'rotate-180' : ''}`}
@@ -104,7 +106,7 @@ export function FilterDropdown<T extends string>({
           ref={panelRef}
           id={panelId}
           role="group"
-          aria-label={label}
+          aria-label={t(label)}
           className={`absolute z-30 mt-2 w-max min-w-full max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface p-2 shadow-card-hover ${panelClass}`}
         >
           <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 font-bold hover:bg-brand-50">
@@ -117,7 +119,7 @@ export function FilterDropdown<T extends string>({
               onChange={() => onChange(everything ? [] : values)}
               className="size-5 accent-brand-700"
             />
-            All
+            {t('All')}
           </label>
           <div className="my-1 border-t border-line" role="separator" />
           {options.map((o) => (
@@ -129,7 +131,7 @@ export function FilterDropdown<T extends string>({
                   onChange={() => toggle(o.value)}
                   className="size-5 accent-brand-700"
                 />
-                {o.label}
+                {t(o.label)}
               </label>
               {selected.includes(o.value) && renderExtra?.(o.value)}
             </div>

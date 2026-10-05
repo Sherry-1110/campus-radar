@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from 'react'
 import type { MapEvent } from '@/lib/events'
 import { INITIAL_BOUNDS, parseBounds, writeBounds, type MapBounds } from '@/lib/geo'
 import { loadGoogleMaps } from '@/lib/googleMaps'
+import { useLang } from '@/lib/i18n'
 
 export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, loading, error }: {
   events: MapEvent[]; selectedId: string | null; onSelect: (id: string, trigger?: HTMLElement) => void;
   bounds: MapBounds | null; onSearchArea: (bounds: MapBounds) => void;
   loading: boolean; error: boolean | string;
 }) {
+  const { t } = useLang()
   const canvas = useRef<HTMLDivElement>(null)
   const mapRegion = useRef<HTMLElement>(null)
   const initial = useRef(bounds ?? INITIAL_BOUNDS)
@@ -85,19 +87,19 @@ export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, l
     }, () => { setLocating(false); setMessage('Location unavailable. You can move the map instead.') }, { timeout: 10000, maximumAge: 60000 })
   }
 
-  return <section ref={mapRegion} tabIndex={-1} aria-label="Event map" className="event-map relative overflow-hidden rounded-2xl border border-line bg-brand-50">
+  return <section ref={mapRegion} tabIndex={-1} aria-label={t('Event map')} className="event-map relative overflow-hidden rounded-2xl border border-line bg-brand-50">
     <div ref={canvas} className="absolute inset-0" />
-    {!map && !message && <p role="status" className="absolute inset-x-4 top-20 rounded-xl bg-white p-4">Loading Google Maps…</p>}
+    {!map && !message && <p role="status" className="absolute inset-x-4 top-20 rounded-xl bg-white p-4">{t('Loading Google Maps…')}</p>}
     {map && <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-      <button type="button" onClick={nearMe} disabled={locating} className="map-control"><LocateFixed className="size-4" aria-hidden="true" />{locating ? 'Locating…' : 'Near me'}</button>
+      <button type="button" onClick={nearMe} disabled={locating} className="map-control"><LocateFixed className="size-4" aria-hidden="true" />{locating ? t('Locating…') : t('Near me')}</button>
       {moved && draft && <button type="button" className="map-control bg-brand-700! text-white!" onClick={() => { onSearchArea(draft); setMoved(false); setGroup([]) }}>
-        <Search className="size-4" aria-hidden="true" />Search this area</button>}
+        <Search className="size-4" aria-hidden="true" />{t('Search this area')}</button>}
     </div>}
     {message && <div role="status" className="absolute inset-x-4 top-20 rounded-xl border border-line bg-white p-4 text-sm shadow-card">
-      <p>{message}</p>{!map && import.meta.env.VITE_GOOGLE_MAPS_API_KEY && <button type="button" className="mt-2 underline" onClick={() => { setMessage(''); setAttempt(value => value + 1) }}>Try again</button>}
+      <p>{message}</p>{!map && import.meta.env.VITE_GOOGLE_MAPS_API_KEY && <button type="button" className="mt-2 underline" onClick={() => { setMessage(''); setAttempt(value => value + 1) }}>{t('Try again')}</button>}
     </div>}
     {visibleGroup.length > 0 && <div className="absolute inset-x-4 top-20 max-h-64 overflow-auto rounded-xl border border-line bg-white p-3 shadow-card-hover">
-      <div className="flex items-center justify-between"><p className="font-bold">At this venue</p><button type="button" aria-label="Close venue events" className="size-11" onClick={() => setGroup([])}><X className="mx-auto size-4" /></button></div>
+      <div className="flex items-center justify-between"><p className="font-bold">{t('At this venue')}</p><button type="button" aria-label={t('Close venue events')} className="size-11" onClick={() => setGroup([])}><X className="mx-auto size-4" /></button></div>
       {visibleGroup.map(event => <button type="button" key={event.id} className="block min-h-11 w-full rounded-lg px-2 py-3 text-left text-sm hover:bg-brand-50" onClick={click => onSelect(event.id, click.currentTarget)}>{event.title}</button>)}
     </div>}
     {map && (loading || error) && <p role="status" className="absolute inset-x-3 bottom-9 rounded-lg bg-white/95 px-3 py-2 text-xs text-ink-muted">

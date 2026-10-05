@@ -1,6 +1,7 @@
 import {
   Dumbbell,
   Frame,
+  Gamepad2,
   GraduationCap,
   Palette,
   PartyPopper,
@@ -29,6 +30,7 @@ const LOOK: Record<CategoryGroup, { icon: LucideIcon; gradient: string }> = {
   food: { icon: Utensils, gradient: 'from-orange-500 to-red-700' },
   market: { icon: Store, gradient: 'from-amber-500 to-orange-700' },
   exhibition: { icon: Frame, gradient: 'from-teal-500 to-cyan-800' },
+  play: { icon: Gamepad2, gradient: 'from-lime-400 to-green-700' },
   performance: { icon: Ticket, gradient: 'from-indigo-500 to-violet-800' },
   other: { icon: Sparkles, gradient: 'from-violet-400 to-purple-700' },
 }

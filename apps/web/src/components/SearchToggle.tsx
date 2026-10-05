@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { useLang } from '@/lib/i18n'
 import { SearchBox } from './SearchBox'
 
 interface SearchToggleProps {
@@ -9,6 +10,7 @@ interface SearchToggleProps {
 
 /** A search icon that opens the search field in a popover. */
 export function SearchToggle({ value, onChange }: SearchToggleProps) {
+  const { t } = useLang()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -42,7 +44,7 @@ export function SearchToggle({ value, onChange }: SearchToggleProps) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        aria-label={active ? `Search events (searching for “${value.trim()}”)` : 'Search events'}
+        aria-label={active ? t('Search events (searching for “{0}”)', value.trim()) : t('Search events')}
         onClick={() => setOpen((o) => !o)}
         className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border shadow-card motion-safe:transition ${
           active || open

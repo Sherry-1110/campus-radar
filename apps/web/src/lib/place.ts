@@ -13,8 +13,8 @@ export function venueName(location: string | null): string | null {
 }
 
 /** Venue plus area, without repeating the same label. */
-export function cardPlace(event: PlaceFields): string | null {
+export function cardPlace(event: PlaceFields, t: (text: string) => string = text => text): string | null {
   const venue = venueName(event.location)
-  const area = event.neighborhood?.trim() || ({ evanston: 'Evanston', chicago: 'Chicago' }[event.region ?? ''])
+  const area = event.neighborhood?.trim() || ({ evanston: t('Evanston'), chicago: t('Chicago') }[event.region ?? ''])
   return [...new Set([venue, area].filter(Boolean))].join(' · ') || null
 }

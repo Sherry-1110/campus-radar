@@ -3,10 +3,12 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { EventDetail } from '@/components/EventDetail'
 import { buttonPrimary, buttonSecondary, StateMessage } from '@/components/StateMessage'
 import { useEvent } from '@/lib/events'
+import { useLang } from '@/lib/i18n'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
 
 export function EventDetailPage() {
   const { id } = useParams()
+  const { t } = useLang()
   const query = useEvent(id)
   useDocumentTitle(query.data?.title)
 
@@ -21,7 +23,7 @@ export function EventDetailPage() {
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
       <button type="button" onClick={goBack} className={`${buttonSecondary} mb-5`}>
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Back to events
+        {t('Back to events')}
       </button>
 
       {query.isPending && <DetailSkeleton />}
@@ -30,28 +32,28 @@ export function EventDetailPage() {
         <StateMessage
           icon={CloudOff}
           tone="error"
-          title="Couldn't load this event"
+          title={t("Couldn't load this event")}
           action={
             <button type="button" onClick={() => query.refetch()} className={buttonPrimary}>
-              Try again
+              {t('Try again')}
             </button>
           }
         >
-          Check your connection and try again.
+          {t('Check your connection and try again.')}
         </StateMessage>
       )}
 
       {query.isSuccess && !query.data && (
         <StateMessage
           icon={SearchX}
-          title="Event not found"
+          title={t('Event not found')}
           action={
             <Link to="/" className={buttonPrimary}>
-              Browse events
+              {t('Browse events')}
             </Link>
           }
         >
-          It may have been removed, or the link is wrong.
+          {t('It may have been removed, or the link is wrong.')}
         </StateMessage>
       )}
 

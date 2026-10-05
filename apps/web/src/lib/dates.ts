@@ -1,5 +1,19 @@
 export const TZ = 'America/Chicago'
 
+let locale = 'en-US'
+/** Day, month and time text follow the site language; the time zone is always Chicago. */
+export function setDateLocale(lang: 'en' | 'zh') { locale = lang === 'zh' ? 'zh-CN' : 'en-US' }
+const formatters = new Map<string, Intl.DateTimeFormat>()
+const localized = (options: Intl.DateTimeFormatOptions) => ({
+  format(date: Date) {
+    const key = locale + JSON.stringify(options)
+    let formatter = formatters.get(key)
+    if (!formatter) formatters.set(key, formatter = new Intl.DateTimeFormat(locale, { timeZone: TZ, ...options }))
+    return formatter.format(date)
+  },
+})
+const withYear = (text: string, year: number) => locale === 'zh-CN' ? `${year}年${text}` : `${text}, ${year}`
+
 interface ZonedParts {
   year: number
   month: number
@@ -53,26 +67,11 @@ export function startOfChicagoDay(now: Date): Date {
   return chicagoMidnight(p.year, p.month, p.day)
 }
 
-const dayFormat = new Intl.DateTimeFormat('en-US', {
-  timeZone: TZ,
-  weekday: 'short',
-  month: 'short',
-  day: 'numeric',
-})
-const longDayFormat = new Intl.DateTimeFormat('en-US', {
-  timeZone: TZ,
-  weekday: 'long',
-  month: 'long',
-  day: 'numeric',
-  year: 'numeric',
-})
-const timeFormat = new Intl.DateTimeFormat('en-US', {
-  timeZone: TZ,
-  hour: 'numeric',
-  minute: '2-digit',
-})
-const monthFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short' })
-const dayNumFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, day: 'numeric' })
+const dayFormat = localized({ weekday: 'short', month: 'short', day: 'numeric' })
+const longDayFormat = localized({ weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+const timeFormat = localized({ hour: 'numeric', minute: '2-digit' })
+const monthFormat = localized({ month: 'short' })
+const dayNumFormat = localized({ day: 'numeric' })
 
 function sameChicagoDay(a: Date, b: Date): boolean {
   const pa = zonedParts(a)
@@ -80,7 +79,7 @@ function sameChicagoDay(a: Date, b: Date): boolean {
   return pa.year === pb.year && pa.month === pb.month && pa.day === pb.day
 }
 
-const weekdayFormat = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'short' })
+const weekdayFormat = localized({ weekday: 'short' })
 
 export function badgeParts(iso: string) {
   const d = new Date(iso)
@@ -105,8 +104,7 @@ function endTime(start: Date, end: Date): string {
     : `${dayFormat.format(end)}, ${timeFormat.format(end)}`
 }
 
-const monthDayFormat = { long: new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'long', day: 'numeric' }),
-  short: new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric' }) }
+const monthDayFormat = { long: localized({ month: 'long', day: 'numeric' }), short: localized({ month: 'short', day: 'numeric' }) }
 
 /** "October 9 – October 16, 2026" (or "Oct 9 – Oct 16" when short); null when both fall on the same Chicago day. */
 export function formatDateRange(firstIso: string, lastIso: string, style: 'long' | 'short' = 'long'): string | null {
@@ -116,8 +114,8 @@ export function formatDateRange(firstIso: string, lastIso: string, style: 'long'
   const ya = zonedParts(a).year
   const yb = zonedParts(b).year
   const f = monthDayFormat[style]
-  if (ya !== yb) return `${f.format(a)}, ${ya} – ${f.format(b)}, ${yb}`
-  return style === 'long' ? `${f.format(a)} – ${f.format(b)}, ${ya}` : `${f.format(a)} – ${f.format(b)}`
+  if (ya !== yb) return `${withYear(f.format(a), ya)} – ${withYear(f.format(b), yb)}`
+  return style === 'long' ? withYear(`${f.format(a)} – ${f.format(b)}`, ya) : `${f.format(a)} – ${f.format(b)}`
 }
 
 export function formatWhenLong(startIso: string, endIso: string | null, allDay = false) {

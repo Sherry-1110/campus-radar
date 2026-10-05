@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { categoryMeta, type EventCategory } from '@/lib/categories'
+import { useLang } from '@/lib/i18n'
 
 interface PosterProps {
   src: string | null
@@ -10,6 +11,7 @@ interface PosterProps {
 }
 
 export function Poster({ src, title, category, className = '', natural = false }: PosterProps) {
+  const { t } = useLang()
   const [failed, setFailed] = useState<string | null>(null)
   const meta = categoryMeta(category)
   const Icon = meta.icon
@@ -18,7 +20,7 @@ export function Poster({ src, title, category, className = '', natural = false }
     return (
       <img
         src={src}
-        alt={`Poster for ${title}`}
+        alt={t('Poster for {0}', title)}
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
@@ -32,7 +34,7 @@ export function Poster({ src, title, category, className = '', natural = false }
     <div
       className={`${natural ? 'relative aspect-[4/3] w-full' : 'absolute inset-0'} flex items-center justify-center overflow-hidden bg-gradient-to-br ${meta.gradient} ${className}`}
       role="img"
-      aria-label={`${meta.label} event`}
+      aria-label={t('{0} event', t(meta.label))}
     >
       <Icon className="size-1/3 text-white/25" strokeWidth={1.25} aria-hidden="true" />
       <div className="absolute -right-8 -top-8 size-32 rounded-full bg-white/10" aria-hidden="true" />

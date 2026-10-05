@@ -233,3 +233,23 @@ begin
 end;
 $$;
 rollback;
+
+-- Test: events you join in with get the Play category; talks about them do not.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  cats public.event_category[];
+begin
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Escape Room Night', '2099-09-01T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['play']::public.event_category[], 'Escape room: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Trivia Night', '2099-09-02T20:00:00Z', 'other') returning categories into cats;
+  assert cats = array['social', 'play']::public.event_category[], 'Trivia is social and play: ' || cats::text;
+  insert into public.events (school_id, title, start_time, category)
+    values (school, 'Seminar: Interactive Learning', '2099-09-03T20:00:00Z', 'academic') returning categories into cats;
+  assert cats = array['academic']::public.event_category[], 'Talks add nothing: ' || cats::text;
+end;
+$$;
+rollback;

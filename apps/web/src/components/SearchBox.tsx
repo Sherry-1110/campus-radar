@@ -1,5 +1,6 @@
 import { Search, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useLang } from '@/lib/i18n'
 
 interface SearchBoxProps {
   value: string
@@ -10,6 +11,7 @@ interface SearchBoxProps {
 }
 
 export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBoxProps) {
+  const { t } = useLang()
   const [draft, setDraft] = useState(value)
   const [prevValue, setPrevValue] = useState(value)
 
@@ -36,7 +38,7 @@ export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBox
       className="flex w-full items-center gap-2 rounded-2xl border border-line bg-white p-1.5 shadow-card"
     >
       <label htmlFor="event-search" className="sr-only">
-        Search events
+        {t('Search events')}
       </label>
       <Search className="ml-3 size-5 shrink-0 text-ink-muted" aria-hidden="true" />
       <input
@@ -48,7 +50,7 @@ export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBox
         autoComplete="off"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="Search events…"
+        placeholder={t('Search events…')}
         className="min-h-11 min-w-0 flex-1 bg-transparent px-1 text-base text-ink placeholder:text-ink-muted focus-visible:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       {draft && (
@@ -59,7 +61,7 @@ export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBox
             onChange('')
           }}
           className="grid size-11 shrink-0 place-items-center rounded-xl text-ink-muted hover:bg-brand-50"
-          aria-label="Clear search"
+          aria-label={t('Clear search')}
         >
           <X className="size-5" aria-hidden="true" />
         </button>
@@ -68,7 +70,7 @@ export function SearchBox({ value, onChange, autoFocus, onSubmitted }: SearchBox
         type="submit"
         className="min-h-11 shrink-0 rounded-xl bg-brand-700 px-5 text-sm font-bold text-white motion-safe:transition hover:bg-brand-800"
       >
-        Search
+        {t('Search')}
       </button>
     </form>
   )

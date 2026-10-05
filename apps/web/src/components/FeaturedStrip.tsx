@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router'
 import { categoryMeta } from '@/lib/categories'
 import { formatWhenShort } from '@/lib/dates'
+import { useLang } from '@/lib/i18n'
 import type { EventListItem } from '@/lib/events'
 import { isMobileViewport } from '@/lib/useEventSelection'
 
@@ -20,6 +21,7 @@ const HOLD_MS = 9000 // how long auto-play stays off after the visitor touches t
  * The poster nearest the middle sits in front, full size and lit; the rest shrink, dim and stack behind it. Every poster carries its title.
  */
 export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onSelect: (id: string, trigger: HTMLElement) => void }) {
+  const { t } = useLang()
   const track = useRef<HTMLUListElement>(null)
   const rest = useRef<number>(0)
   let base = items
@@ -119,7 +121,7 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
 
   if (!items.length) return null
   return (
-    <section aria-label="Featured events" className="relative overflow-hidden bg-[#0f0b1e]"
+    <section aria-label={t('Featured events')} className="relative overflow-hidden bg-[#0f0b1e]"
       style={{ backgroundImage: 'radial-gradient(ellipse 55% 100% at 50% 50%, rgba(124,77,255,.35), transparent 75%)' }}>
       <ul ref={track} onScroll={onScroll} onPointerEnter={e => { if (e.pointerType === 'mouse') hold.current.hover = true }}
         onPointerLeave={() => { hold.current.hover = false }} onPointerDown={pause} onWheel={pause}
@@ -128,16 +130,16 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
         {[...base, ...base, ...base].map((event, i) => (
           <li key={i} aria-hidden={i < base.length || i >= base.length * 2 || undefined} className="stage-item -ml-8 shrink-0 snap-center snap-always sm:-ml-12">
             <div data-card className="stage-card relative">
-            <Link to={`/events/${event.id}`} aria-label={`View ${event.title}`} draggable={false}
+            <Link to={`/events/${event.id}`} aria-label={t('View {0}', event.title)} draggable={false}
               tabIndex={i < base.length || i >= base.length * 2 ? -1 : undefined}
               onClick={e => {
                 if (isMobileViewport() && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); onSelect(event.id, e.currentTarget) }
               }}
               className="relative block aspect-[4/3] h-56 overflow-hidden shadow-[0_8px_28px_rgba(0,0,0,.7)] ring-1 ring-white/30 sm:h-80">
-              <img src={event.cover_image_url!} alt={`Poster for ${event.title}`} referrerPolicy="no-referrer" draggable={false} className="size-full object-cover" />
+              <img src={event.cover_image_url!} alt={t('Poster for {0}', event.title)} referrerPolicy="no-referrer" draggable={false} className="size-full object-cover" />
               <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/65 to-transparent px-4 pb-3 pt-16 text-white [text-shadow:0_1px_3px_rgb(0_0_0/.8)]">
                 <span className="line-clamp-2 block text-sm font-bold leading-tight sm:text-base">{event.title}</span>
-                <span className="line-clamp-1 mt-0.5 block text-xs text-white/80">{categoryMeta(event.category).label} · {formatWhenShort(event.start_time, null, event.is_all_day)}</span>
+                <span className="line-clamp-1 mt-0.5 block text-xs text-white/80">{t(categoryMeta(event.category).label)} · {formatWhenShort(event.start_time, null, event.is_all_day)}</span>
               </span>
             </Link>
             <span data-dim aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black" style={{ opacity: DIM }} />
@@ -146,7 +148,7 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
         ))}
       </ul>
       {([-1, 1] as const).map(dir => (
-        <button key={dir} type="button" aria-label={dir < 0 ? 'Previous poster' : 'Next poster'} onClick={() => { pause(); step(dir) }}
+        <button key={dir} type="button" aria-label={dir < 0 ? t('Previous poster') : t('Next poster')} onClick={() => { pause(); step(dir) }}
           className={`absolute top-1/2 z-20 hidden size-11 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-white backdrop-blur hover:bg-black/55 sm:grid ${dir < 0 ? 'left-4' : 'right-4'}`}>
           {dir < 0 ? <ChevronLeft className="size-6" aria-hidden="true" /> : <ChevronRight className="size-6" aria-hidden="true" />}
         </button>
