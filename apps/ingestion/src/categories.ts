@@ -64,7 +64,7 @@ export async function evaluateCategories(key: string) {
   const results = []
   for (const item of cases) {
     const decision = await classifyEvent(item, key)
-    results.push({ title: item.title, expected: item.expected, actual: decision?.categories ?? null,
+    results.push({ title: item.title, expected: item.expected, actual: decision.categories, scores: decision.scores,
       passed: !!decision.categories && [...decision.categories].sort().join() === [...item.expected].sort().join() })
   }
   return results
