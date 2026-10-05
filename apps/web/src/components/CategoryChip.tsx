@@ -1,11 +1,11 @@
-import { eventGroups, type EventCategory } from '@/lib/categories'
+import { categoryMeta, eventGroups, type EventCategory } from '@/lib/categories'
 import { useLang } from '@/lib/i18n'
 
-/** One chip per site category, at most 3. Talks and the like have none. */
+/** Up to three site categories, with a neutral tag for events outside those groups. */
 export function CategoryChips({ event }: { event: { category: EventCategory; categories?: EventCategory[] } }) {
   const { t } = useLang()
   const metas = eventGroups(event)
-  if (!metas.length) return null
+  if (!metas.length) metas.push(categoryMeta('other'))
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {metas.map(meta => {
