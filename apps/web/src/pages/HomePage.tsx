@@ -1,13 +1,14 @@
-import { CalendarX, CloudOff, ListChecks, Map, LayoutGrid } from 'lucide-react'
+import { CalendarX, CloudOff, ListChecks } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { EventCardSkeleton } from '@/components/EventCard'
 import { EventDetailPanel } from '@/components/EventDetailPanel'
 import { EventGrid } from '@/components/EventGrid'
 import { EventMap } from '@/components/EventMap'
-import { FilterBar } from '@/components/FilterBar'
+import { FeaturedStrip } from '@/components/FeaturedStrip'
+import { CategoryTabs, FilterBar } from '@/components/FilterBar'
 import { buttonPrimary, buttonSecondary, StateMessage } from '@/components/StateMessage'
-import { useEvents, useMapEvents } from '@/lib/events'
+import { useEvents, useFeaturedEvents, useMapEvents } from '@/lib/events'
 import { matchesNothing } from '@/lib/filters'
 import { parseBounds, writeBounds, type MapBounds } from '@/lib/geo'
 import { useDocumentTitle } from '@/lib/useDocumentTitle'
@@ -22,6 +23,7 @@ export function HomePage() {
   const [mapActivated, setMapActivated] = useState(false)
   const bounds = parseBounds(params.get('bounds'))
   const query = useEvents(filters, bounds)
+  const featured = useFeaturedEvents()
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const mapQuery = useMapEvents(filters, bounds, showMap && Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY))
   const selection = useEventSelection()
@@ -61,17 +63,11 @@ export function HomePage() {
   }, [params, setParams])
   const nothingSelected = matchesNothing(filters)
 
-  return <div className="mx-auto max-w-[1600px] px-1.5 py-6 sm:px-6 sm:py-8">
-    <div className="mb-4 flex items-start justify-between gap-3 px-1.5 sm:mb-6 sm:px-0">
-      <div className="min-w-0">
-        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Find something fun</h1>
-        <p className="mt-2 text-sm text-ink-muted">Good things are happening nearby, right now.</p>
-      </div>
-      <button type="button" className={buttonSecondary} aria-pressed={showMap} onClick={() => { setShowMap(value => !value); setMapActivated(true) }}>
-        {showMap ? <LayoutGrid className="size-4" /> : <Map className="size-4" />}{showMap ? 'Cards' : 'Map'}
-      </button>
-    </div>
-    <FilterBar filters={filters} onChange={update} onSearch={setQuery} />
+  return <>
+    {!filters.q && <FeaturedStrip items={featured.data ?? []} onSelect={selection.open} />}
+  <div className="mx-auto max-w-[1600px] px-1.5 py-6 sm:px-6 sm:py-8">
+    <FilterBar filters={filters} onChange={update} onSearch={setQuery} mapOn={showMap} onToggleMap={() => { setShowMap(value => !value); setMapActivated(true) }} />
+    <CategoryTabs filters={filters} onChange={update} />
     {bounds && <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span>Showing mapped events in your selected area. Unmapped venues are excluded.</span><button type="button" className="min-h-11 font-bold text-brand-700 underline" onClick={() => searchArea(null)}>Clear area</button></div>}
     <div className={`discovery-layout ${showMap ? 'with-map' : ''} mt-5`}>
       <section aria-label="Events" className={`${showMap ? 'hidden lg:block' : ''} min-w-0`}>
@@ -99,4 +95,5 @@ export function HomePage() {
     </div>
     {selection.selectedId && isMobileViewport() && <EventDetailPanel id={selection.selectedId} onClose={selection.close} returnFocus={selection.returnFocus} />}
   </div>
+  </>
 }

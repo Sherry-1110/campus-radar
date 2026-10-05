@@ -35,7 +35,7 @@ export function SearchToggle({ value, onChange }: SearchToggleProps) {
   }, [open])
 
   return (
-    <div ref={rootRef} className="relative max-sm:grow">
+    <div ref={rootRef} className="relative">
       <button
         ref={buttonRef}
         type="button"
@@ -44,7 +44,7 @@ export function SearchToggle({ value, onChange }: SearchToggleProps) {
         aria-controls={open ? panelId : undefined}
         aria-label={active ? `Search events (searching for “${value.trim()}”)` : 'Search events'}
         onClick={() => setOpen((o) => !o)}
-        className={`relative grid h-11 w-11 place-items-center max-sm:w-full rounded-xl border shadow-card motion-safe:transition ${
+        className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border shadow-card motion-safe:transition ${
           active || open
             ? 'border-brand-700 bg-brand-50 text-brand-800'
             : 'border-line bg-surface text-ink hover:border-brand-300'
@@ -60,7 +60,7 @@ export function SearchToggle({ value, onChange }: SearchToggleProps) {
       </button>
 
       {open && (
-        <div id={panelId} className="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))]">
+        <div id={panelId} className="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] max-sm:fixed max-sm:inset-x-4 max-sm:w-auto">
           <SearchBox value={value} onChange={onChange} autoFocus onSubmitted={() => setOpen(false)} />
         </div>
       )}

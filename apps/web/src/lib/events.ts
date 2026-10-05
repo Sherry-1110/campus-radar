@@ -5,6 +5,7 @@ import { queryEvents } from './eventQuery'
 import type { MapBounds } from './geo'
 import { supabase } from './supabase'
 import { startOfChicagoDay } from './dates'
+import { pickFeatured, type FeaturedCandidate } from './recommend'
 import { nextPage, pageRange } from './pagination'
 
 export type EventRow = Database['public']['Tables']['events']['Row']
@@ -128,6 +129,22 @@ export function useSeriesDates(seriesId: string | null) {
         dates.push(...data)
         if (data.length < 500) return dates
       }
+    },
+  })
+}
+
+/** Upcoming events with posters that look big or special, for the home page strip. */
+export function useFeaturedEvents() {
+  return useQuery({
+    queryKey: ['featured-events'], staleTime: 10 * 60_000,
+    queryFn: async ({ signal }) => {
+      const from = startOfChicagoDay(new Date())
+      const { data, error } = await supabase.from('events').select(`${LIST_COLUMNS},description`)
+        .eq('status', 'published').eq('is_cancelled', false).not('cover_image_url', 'is', null)
+        .gte('start_time', from.toISOString()).lt('start_time', new Date(from.getTime() + 14 * 86_400_000).toISOString())
+        .order('start_time').limit(300).abortSignal(signal).returns<FeaturedCandidate[]>()
+      if (error) throw error
+      return pickFeatured(data)
     },
   })
 }
