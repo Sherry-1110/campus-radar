@@ -81,18 +81,24 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items])
 
-  // Once scrolling has stopped, step back into the middle copy; the copies are identical so nothing visibly moves.
-  const onScroll = () => {
-    light()
+  // Once scrolling has stopped (and no finger is down): centre the nearest poster ourselves in case the browser's
+  // own snapping did not, then step back into the middle copy; the copies are identical so nothing visibly moves.
+  const touching = useRef(false)
+  const settle = () => {
     clearTimeout(rest.current)
     rest.current = window.setTimeout(() => {
       const el = track.current
+      const m = metrics.current
       const w = loopWidth()
-      if (!el || !w) return
+      if (!el || !m || !w || touching.current) return
+      const mid = el.scrollLeft + m.half
+      const off = m.centers.map(c => c - mid).reduce((best, o) => (Math.abs(o) < Math.abs(best) ? o : best))
+      if (Math.abs(off) > 1.5) { el.scrollTo({ left: el.scrollLeft + off, behavior: 'smooth' }); return }
       if (el.scrollLeft < w * 0.5) el.scrollLeft += w
       else if (el.scrollLeft > w * 1.5) el.scrollLeft -= w
-    }, 150)
+    }, 120)
   }
+  const onScroll = () => { light(); settle() }
   useEffect(() => () => clearTimeout(rest.current), [])
 
   // Moves one poster along; scroll-snap settles it.
@@ -116,7 +122,8 @@ export function FeaturedStrip({ items, onSelect }: { items: EventListItem[]; onS
     <section aria-label="Featured events" className="relative overflow-hidden bg-[#0f0b1e]"
       style={{ backgroundImage: 'radial-gradient(ellipse 55% 100% at 50% 50%, rgba(124,77,255,.35), transparent 75%)' }}>
       <ul ref={track} onScroll={onScroll} onPointerEnter={e => { if (e.pointerType === 'mouse') hold.current.hover = true }}
-        onPointerLeave={() => { hold.current.hover = false }} onPointerDown={pause} onWheel={pause} onTouchStart={pause}
+        onPointerLeave={() => { hold.current.hover = false }} onPointerDown={pause} onWheel={pause}
+        onTouchStart={() => { pause(); touching.current = true }} onTouchEnd={() => { touching.current = false; settle() }} onTouchCancel={() => { touching.current = false; settle() }}
         className="stage-track relative flex snap-x snap-mandatory items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {[...base, ...base, ...base].map((event, i) => (
           <li key={i} aria-hidden={i < base.length || i >= base.length * 2 || undefined} className="stage-item -ml-8 shrink-0 snap-center snap-always sm:-ml-12">
