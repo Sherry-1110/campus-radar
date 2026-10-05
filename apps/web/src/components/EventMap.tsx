@@ -86,7 +86,8 @@ export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, l
         position: { lat: point.latitude, lng: point.longitude }, content: pin,
         title: rows.length === 1 ? rows[0].title : `${rows.length} events at this venue`, zIndex: active ? 10 : 1,
       })
-      if (hoverable && rows.length === 1) {
+      // The open event needs no preview; the cursor often still rests on its pin after the click.
+      if (hoverable && rows.length === 1 && rows[0].id !== selectedId) {
         pin.addEventListener('mouseenter', () => {
           const box = mapRegion.current?.getBoundingClientRect(), at = pin.getBoundingClientRect()
           if (!box) return
@@ -106,7 +107,8 @@ export function EventMap({ events, selectedId, onSelect, bounds, onSearchArea, l
     const event = events.find(row => row.id === selectedId)
     if (!map || !event || isWideViewport() || !mapRegion.current) return
     const top = mapRegion.current.getBoundingClientRect().top
-    if (Math.abs(top) > 8) window.scrollBy({ top: top - 8 })
+    // Instant, so the map's new position can be measured right away (the page otherwise scrolls smoothly).
+    if (Math.abs(top) > 8) window.scrollBy({ top: top - 8, behavior: 'instant' })
     const box = mapRegion.current.getBoundingClientRect()
     const visibleMiddle = (Math.max(box.top, 0) + window.innerHeight / 2) / 2 - box.top
     panning.current = true
