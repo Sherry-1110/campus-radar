@@ -8,7 +8,8 @@ import type { Decision, Detail } from './semantic.ts'
 type Page = { html: string; url: string }
 type FetchPage = (url: string) => Promise<Page>
 const managed = ['description', 'cover_image_url', 'source_url'] as const
-const words = (s: string) => text(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/).filter(w=>!['the','a','an','and','of','at','for','in','with'].includes(w))
+// Accents folded: the alt text "Pokemon Fossil Museum" names the event "Pokémon Fossil Museum".
+const words = (s: string) => text(s).normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().split(/\s+/).filter(w=>!['the','a','an','and','of','at','for','in','with'].includes(w))
 function matches(a: string, b: string) {
   const x=words(a), y=new Set(words(b))
   return x.length>0 && (x.join(' ')===[...y].join(' ') || x.length>=3 && x.filter(w=>y.has(w)).length/x.length>=0.8)
@@ -104,6 +105,11 @@ function day(value: unknown) {
   return /(?:Z|[+-]\d\d:\d\d)$/.test(raw) && Number.isFinite(Date.parse(raw)) ? chicagoDay.format(new Date(raw)) : raw.slice(0,10)
 }
 
+function captioned($: ReturnType<typeof load>, pageUrl: string, title: string) {
+  const name=words(title).join(' ')
+  return $('img[alt]').toArray().map(el=>words($(el).attr('alt')!).join(' ')===name?image($(el).attr('data-src')||$(el).attr('src'),pageUrl):null).find(Boolean)??null
+}
+
 export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   const $=load(html)
   const data=$('script[type="application/ld+json"]').toArray().flatMap(el=>{try{return nodes(JSON.parse($(el).text()))}catch{return []}})
@@ -125,8 +131,13 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   if(!event && !pageMatches) {
     // Not this event's own page, but perhaps a listing that shows it: borrow its picture only if it has none.
     const nearby=item.data.cover_image_url||homepage(pageUrl)?null:nearbyImage(html,pageUrl,item.data.title)
+    // A card or link titled exactly like the event leads to its own page on the same site: follow it.
+    const titled=(label:string)=>matches(item.data.title,label)&&words(label).length<=words(item.data.title).length+3
+    const own=$('a[href]').toArray().find(a=>$(a).find('*').addBack().toArray().some(el=>titled($(el).text())))
+    const page=own?link($(own).attr('href'),pageUrl):null
+    const next=page&&page!==pageUrl&&new URL(page).hostname===new URL(pageUrl).hostname?[page]:[]
     // A listing is not the event's page: keep the calendar's own link as the source.
-    return nearby?{description:null,image:nearby,next:[],listing:true}:null
+    return nearby||next.length?{description:null,image:nearby,next,listing:true}:null
   }
   let article=text(content.html())
   if(/\btickets?\b/i.test(heading)) {
@@ -156,6 +167,9 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
       && titleTokens.filter(w=>tokens.has(w)).length>=Math.min(2,titleTokens.length) ? url : null
   }).find(Boolean)
   const poster=(pageMatches?visiblePoster:null)||image(event?.image,pageUrl)||(pageMatches&&(!homepage(pageUrl)||ownSite(pageUrl,item.data.title))?image($('meta[property="og:image"]').attr('content'),pageUrl):null)
+    // No share image: a picture captioned with the event's own name, such as an exhibition's hero image.
+    // Lazy-loading sites keep the real <img> inside <noscript>, so read it as markup here.
+    ||(pageMatches?captioned(load(html,{scriptingEnabled:false}),pageUrl,item.data.title):null)
     // The page is about this event but offers no specific share image: use the picture beside its title.
     ||(item.data.cover_image_url?null:nearbyImage(html,pageUrl,item.data.title))
   const next=event?[event.url,...(Array.isArray(event.sameAs)?event.sameAs:[event.sameAs])].map(v=>link(v,pageUrl)).filter((v):v is string=>Boolean(v&&v!==pageUrl)):[]

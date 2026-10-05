@@ -443,3 +443,31 @@ begin
 end;
 $$;
 rollback;
+
+-- Test: everything from a Northwestern site is on campus; other feeds only at a campus address.
+begin;
+do $$
+declare
+  school uuid := (select id from public.schools limit 1);
+  athletics uuid := (select id from public.sources where adapter_key = 'nusports');
+  nu uuid := (select id from public.sources where url ilike '%planitpurple%');
+  city uuid;
+  a public.event_area;
+begin
+  insert into public.sources (name, type, url) values ('Test city roundup', 'calendar_scrape', 'https://www.example.com/roundup') returning id into city;
+  insert into public.events (school_id, title, start_time, source_id, location) values (school, 'City pick', '2099-12-28T20:00:00Z', city, null) returning area into a;
+  assert a = 'nearby', 'A city pick with no location is not on campus: ' || a;
+  insert into public.events (school_id, title, start_time, source_id, location) values (school, 'City venue', '2099-12-28T21:00:00Z', city, 'Some Theater') returning area into a;
+  assert a = 'nearby', 'A bare venue from a city feed is not on campus: ' || a;
+  insert into public.events (school_id, title, start_time, source_id, location) values (school, 'City at Norris', '2099-12-28T22:00:00Z', city, '1999 Campus Dr, Evanston, IL 60208') returning area into a;
+  assert a = 'campus', 'Any feed at a campus address is on campus: ' || a;
+  insert into public.events (school_id, title, start_time, source_id, location) values (school, 'Home game', '2099-12-29T20:00:00Z', athletics, 'Ryan Field, Evanston, Ill.') returning area into a;
+  assert a = 'campus', 'An NU home game is on campus: ' || a;
+  insert into public.events (school_id, title, start_time, source_id, location) values (school, 'Golf', '2099-12-29T21:00:00Z', athletics, 'Glencoe, Ill.') returning area into a;
+  assert a = 'campus', 'Anything from NU Athletics is on campus: ' || a;
+  insert into public.events (school_id, title, start_time, source_id, location) values (school, 'NU downtown', '2099-12-29T22:00:00Z', nu, '1601 Sherman Ave, Evanston, IL 60201') returning area into a;
+  assert a = 'campus', 'Anything from PlanItPurple is on campus: ' || a;
+end;
+$$;
+rollback;
+

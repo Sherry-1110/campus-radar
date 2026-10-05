@@ -127,3 +127,14 @@ test('long organizer pages are cut to the 5000-character description limit',asyn
   const description=result.items[0]!.data.description!
   assert.ok(description.length<=5000 && description.endsWith('…'), `length ${description.length}`)
 })
+test('a listing that links to the event by its exact title is followed to the event page',async()=>{
+  const show={...item,related_url:'https://museum.org/tickets',data:{...item.data,title:'Pokémon Fossil Museum',description:null}}
+  const pages:Record<string,string>={
+    'https://museum.org/tickets':'<meta property="og:title" content="Tickets & Pricing"><main><a href="/visit">Plan a visit to the museum, fossil halls and more</a><a href="/exhibition/pokemon"><img src="/thumb.webp"><span class="card__title">Pokémon Fossil Museum</span><p>Through April 11, 2027</p></a></main>',
+    // No share image: the hero picture captioned with the exhibition's name (without its accent) is the poster.
+    'https://museum.org/exhibition/pokemon':'<meta property="og:title" content="Pokémon Fossil Museum"><img src="/icons/logo.svg" alt="Museum home"><img src="data:image/svg+xml;base64,AA==" alt=""><noscript><img src="/pokemon.jpg" alt="Pokemon Fossil Museum"></noscript><main><p>Fossils of Pokémon reimagined by paleontologists, with real specimens alongside.</p></main>',
+  }
+  const result=await enrichSource({items:[show],warnings:[]},async url=>({url,html:pages[url]!}),new Date('2026-09-20'))
+  assert.equal(result.items[0]!.data.cover_image_url,'https://museum.org/pokemon.jpg')
+  assert.equal(result.items[0]!.data.source_url,'https://museum.org/exhibition/pokemon')
+})
