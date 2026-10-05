@@ -82,8 +82,8 @@ class Events:
         while True:
             query = urllib.parse.urlencode({
                 'select': 'title,location,title_zh,location_zh', 'status': 'eq.published', 'is_hidden': 'eq.false',
-                'or': '(title_zh.is.null,location_zh.is.null)',
-                'and': f'(start_time.gte.{start:%Y-%m-%dT%H:%M:%SZ},start_time.lt.{end:%Y-%m-%dT%H:%M:%SZ})',
+                # Events still running count too: a month-long exhibition started weeks ago.
+                'and': f'(or(title_zh.is.null,location_zh.is.null),or(start_time.gte.{start:%Y-%m-%dT%H:%M:%SZ},end_time.gte.{now:%Y-%m-%dT%H:%M:%SZ}),start_time.lt.{end:%Y-%m-%dT%H:%M:%SZ})',
                 'order': 'start_time', 'limit': 1000, 'offset': offset})
             page = request(f'{self.url}?{query}', self.headers)
             rows += page
