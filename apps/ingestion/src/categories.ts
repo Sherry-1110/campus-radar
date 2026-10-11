@@ -2,6 +2,7 @@ import { appendFile } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createClient } from '@supabase/supabase-js'
 import { CATEGORY_GROUPS, type CategoryGroup, type DbCategory } from '../../web/src/lib/categoryGroups.ts'
+import { pipelineRpc } from './pipeline.ts'
 import { record } from './sources/shared.ts'
 
 const MODEL = 'jev-1.13.0'
@@ -81,9 +82,8 @@ async function main() {
   const queue: EventText[] = []
   // PostgREST caps responses at 1,000 rows even when the SQL function allows more.
   for (let offset = 0; offset < 5000; offset += 1000) {
-    const { data, error } = await client.rpc('pending_event_categories', { p_limit: 5000, p_version: CATEGORY_VERSION }).range(offset, offset + 999)
-    if (error) throw new Error(`Category read failed: ${error.code}`)
-    queue.push(...data as EventText[])
+    const data = await pipelineRpc<EventText[]>(client, 'pending_event_categories', { p_limit: 5000, p_version: CATEGORY_VERSION }, [offset, offset + 999])
+    queue.push(...data)
     if (data.length < 1000) break
   }
   const report = { pending: queue.length, classified: 0, events: 0, uncertain: 0, failed: 0, deferred: 0 }
@@ -94,15 +94,15 @@ async function main() {
       const item = queue.shift()!
       try {
         const decision = await classifyEvent(item, key)
-        const saved = await client.rpc('remember_event_categories', { p_title: item.title, p_description: item.description,
+        const saved = await pipelineRpc<number>(client, 'remember_event_categories', { p_title: item.title, p_description: item.description,
           p_categories: decision.categories, p_scores: decision.scores, p_version: CATEGORY_VERSION, p_model: MODEL })
-        if (saved.error) throw new Error(`Category write failed: ${saved.error.code}`)
-        if (decision.categories) { report.classified++; report.events += Number(saved.data) }
+        if (decision.categories) { report.classified++; report.events += saved }
         else report.uncertain++
       } catch (error) {
         report.failed++
         // Failed attempts rotate behind untried text; they remain eligible next run.
-        await client.rpc('remember_event_categories', { p_title: item.title, p_description: item.description, p_categories: null, p_scores: {}, p_version: CATEGORY_VERSION, p_model: MODEL })
+        try { await pipelineRpc(client, 'remember_event_categories', { p_title: item.title, p_description: item.description, p_categories: null, p_scores: {}, p_version: CATEGORY_VERSION, p_model: MODEL }) }
+        catch (error) { console.error(error instanceof Error ? error.message : 'Category attempt recording failed') }
         console.error(error instanceof Error ? error.message : 'Category classification failed')
         if (error instanceof Error && /HTTP (401|403)/.test(error.message)) stopped = true
       }

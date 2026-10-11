@@ -43,6 +43,7 @@ jobs:
     if: ${{ !inputs.coordinates_only }}
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         source: ${{ fromJSON(inputs.source && inputs.source != 'all' && format('["{0}"]', inputs.source) || '["planitpurple","bienen","choose-chicago","chicago-roundups","garage","nusports","cats-on-campus","downtown-evanston","space","do312","second-city"]') }}
     runs-on: ubuntu-latest
@@ -130,3 +131,23 @@ jobs:
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
         run: node apps/ingestion/src/categories.ts
+
+  cleanup:
+    name: Prune retained raw responses
+    needs: sync
+    if: ${{ always() && !cancelled() && !inputs.coordinates_only && (github.event_name == 'schedule' || github.event_name == 'push' || inputs.apply) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/web/.nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Reclaim expired raw responses in bounded transactions
+        env:
+          SUPABASE_URL: https://lqirwngvveapraatpibe.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: npm run sync:events -- --apply --cleanup

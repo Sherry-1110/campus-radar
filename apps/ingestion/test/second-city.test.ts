@@ -48,3 +48,21 @@ test('Second City rejects malformed schedules and never invents occurrences from
   assert.equal(parseSecondCity(page([show([])]), now).items.length, 0)
   for (const data of ['{}', '{"errors":[{"message":"upstream"}]}', page([show([instance('', '2026-10-31T01:00:00Z')])]), page([show([instance('a', '2026-10-31T01:00:00')])])]) assert.throws(() => parseSecondCity(data, now))
 })
+
+test('Second City warns for an unidentified performance while retaining every identified performance', () => {
+  const date = '2026-10-31T01:00:00Z'
+  const result = parseSecondCity(page([
+    show([instance('a', date), instance('', date), instance('b', date)]),
+    show([instance('c', date)], { uri: '/shows/chicago/another-show' }),
+  ]), now)
+  assert.deepEqual(result.items.map(item => item.external_id), ['a', 'b', 'c'])
+  assert.ok(result.warnings.some(warning => /missing stable ID.*skipped/.test(warning) && warning.includes('/shows/chicago/sketch-chi') && warning.includes('2026-10-31')))
+})
+
+test('Second City still rejects wholly unidentified pages and malformed performance fields', () => {
+  const date = '2026-10-31T01:00:00Z'
+  assert.throws(() => parseSecondCity(page([show([instance('', date)])]), now), /stable ID/)
+  for (const bad of [null, {}, instance('', 'bad date'), instance('', date, { allocations: [{ levels: [{ price: -1 }] }] }), instance('', date, { id: {} })]) {
+    assert.throws(() => parseSecondCity(page([show([instance('valid', date), bad])]), now))
+  }
+})

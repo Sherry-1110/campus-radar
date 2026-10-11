@@ -120,3 +120,16 @@ test('Do312 semantic apply sees plain div prose and an icon-only publisher ticke
   assert.deepEqual(visits, [item.data.source_url, organizer])
   assert.equal(applied.items[0]!.data.cover_image_url, 'https://assets0.dostuffmedia.com/poster.jpg')
 })
+
+test('Do312 requests HTML pagination even when next links select JSON', async () => {
+  const seen: string[] = []
+  const result = await fetchDo312(async href => {
+    seen.push(href)
+    if (new URL(href).searchParams.has('format')) return '{"html":"not a listing document"}'
+    return href.includes('page=2') ? card('', '2026-11-01T20:30-0600', '43') : card() + '<a class="ds-next-page" href="?format=json&amp;page=2"></a>'
+  }, new Date('2026-11-01T12:00:00Z'), 1)
+  assert.deepEqual(result.items.map(item => item.external_id), ['42', '43'])
+  assert.deepEqual(seen, ['https://do312.com/events/2026/11/01', 'https://do312.com/events/2026/11/01?page=2'])
+  await assert.rejects(fetchDo312(async () => card() + '<a class="ds-next-page" href="?format=json"></a>', new Date('2026-11-01T12:00:00Z'), 1), /pagination/)
+  await assert.rejects(fetchDo312(async () => card() + '<a class="ds-next-page" href="https://evil.example/?format=json&amp;page=2"></a>', new Date('2026-11-01T12:00:00Z'), 1), /pagination/)
+})

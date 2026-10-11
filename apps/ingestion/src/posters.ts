@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
+import { pipelineRpc } from './pipeline.ts'
 import { fetchPublicFile } from './original-fetch.ts'
 
 export async function normalizePoster(body: Buffer): Promise<Buffer> {
@@ -27,9 +28,8 @@ export async function storePosters(client:SupabaseClient, urls:string[], downloa
   const report={total:pending.length,uploaded:0,reused:0,failed:0,deferred:0,events_updated:0,failures:[] as Array<{url:string;error:string}>}
   const known=new Map<string,string>()
   for(let offset=0;offset<pending.length;offset+=500){
-    const {data,error}=await client.rpc('get_event_poster_copies',{p_urls:pending.slice(offset,offset+500)})
-    if(error)throw Error(`Cannot read poster cache: ${error.code}`)
-    for(const item of data as Array<{source_url:string;stored_url:string}>)known.set(item.source_url,item.stored_url)
+    const data=await pipelineRpc<Array<{source_url:string;stored_url:string}>>(client,'get_event_poster_copies',{p_urls:pending.slice(offset,offset+500)})
+    for(const item of data)known.set(item.source_url,item.stored_url)
   }
   let next=0, completed=0
   await Promise.all(Array.from({length:6},async()=>{
@@ -54,8 +54,7 @@ export async function storePosters(client:SupabaseClient, urls:string[], downloa
         if(error&& !('statusCode' in error&&String(error.statusCode)==='409'))throw Error(`Poster upload failed: ${error.message}`)
         report.uploaded++
       }
-      const {data,error}=await client.rpc('remember_event_poster',{p_source_url:source,p_storage_path:path,p_stored_url:stored})
-      if(error)throw Error(`Cannot register stored poster: ${error.code}`)
+      const data=await pipelineRpc<number>(client,'remember_event_poster',{p_source_url:source,p_storage_path:path,p_stored_url:stored})
       report.events_updated+=Number(data)
       if(++completed%100===0)console.log(`Poster storage: ${completed} stored/reused, ${report.failed} unavailable, ${pending.length} total`)
     }

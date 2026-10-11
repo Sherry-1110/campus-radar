@@ -445,3 +445,28 @@ start time. Tracking parameters do not define identity. Ambiguous matches remain
 separate, and different performance times are never merged solely by title/date.
 Jev remains responsible for categories and evidence selection, not untested fuzzy
 merges. An absent source listing never implies cancellation.
+
+### Pipeline reliability (October 11, 2026)
+
+Source jobs run at most three at a time. The shared database RPC helper retries
+only explicit PostgreSQL transaction rollbacks (timeout, deadlock, serialization,
+lock timeout), at most twice. Unknown transport outcomes and permanent errors
+fail visibly; raw response contents never enter error messages. Staging and
+publication shrink timed-out batches without replaying earlier committed work.
+Bounded backend storage, staging, metadata and category RPCs have a 30-second
+statement budget; public/client role limits are unchanged. Raw storage checks for
+an existing body hash before attempting another large insert.
+
+Source completion commits before raw retention. A separate maintenance job runs
+`npm run sync:events -- --apply --cleanup`, removing at most 100 manifest rows and
+100 unreferenced bodies per transaction (smaller after timeouts). It keeps the
+latest three completed captures and all running captures. Cleanup failure remains
+visible in its own job and can be retried without changing event or source status.
+The category queue groups identical recurring text before hashing/cache lookup.
+
+Do312 pagination requests HTML even when its next link selects JSON. NU Athletics
+collapses identical pagination overlaps and rejects conflicting copies or incomplete
+pagination. Second City skips otherwise valid performances without ticket IDs with
+an explicit warning; invalid schemas and pages containing only unidentified
+performances still fail. Existing events are never cancelled because a listing is
+missing or an unidentified performance was skipped.

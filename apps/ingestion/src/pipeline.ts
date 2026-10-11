@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Candidate, FetchText } from './types.ts'
 
@@ -37,29 +38,78 @@ export function captureSource(save: (document: RawDocument) => Promise<void>, re
   }
 }
 
-export async function pipelineRpc<T>(client: SupabaseClient, name: string, args: Record<string, unknown>): Promise<T> {
-  const result = await client.rpc(name, args)
-  if (result.error) {
-    const safe = result.error.message === 'Cannot publish capture older than latest successful run' ? result.error.message : result.error.code
-    throw new Error(`Pipeline ${name}: ${safe}`)
+// Retry only explicit transaction rollbacks. A lost HTTP response may have committed.
+export async function pipelineRpc<T>(client: SupabaseClient, name: string, args: Record<string, unknown>, range?: [number, number]): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    const query = client.rpc(name, args)
+    const result = await (range ? query.range(...range) : query)
+    if (!result.error) return result.data as T
+    const code = result.error.code || 'transport_error'
+    if (attempt < 2 && ['57014', '40001', '40P01', '55P03'].includes(code)) {
+      await delay(250 * 2 ** attempt)
+      continue
+    }
+    const safe = result.error.message === 'Cannot publish capture older than latest successful run' ? result.error.message : code
+    throw Object.assign(new Error(`Pipeline ${name}: ${safe}`), { code })
   }
-  return result.data as T
 }
+
+export async function writeBatches(source: string, items: Candidate[], write: (source: string, items: Candidate[]) => Promise<Record<string, number>>) {
+  const totals: Record<string, number> = {}
+  // Atomic per batch; only rolled-back timeouts shrink it. Earlier commits are retained.
+  let batchSize = 100
+  for (let offset = 0; offset < items.length;) {
+    const batch = items.slice(offset, offset + batchSize)
+    try {
+      const stats = await write(source, batch)
+      for (const [key, value] of Object.entries(stats)) totals[key] = (totals[key] ?? 0) + value
+      offset += batch.length
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === '57014' && batch.length > 1) {
+        batchSize = Math.floor(batch.length / 2)
+        console.warn(`${source}: database statement timed out; retrying at ${offset} with batches of ${batchSize}`)
+        continue
+      }
+      throw new Error(`${offset} candidates committed; safe to retry. ${error instanceof Error ? error.message : 'Batch failed'}`)
+    }
+  }
+  return totals
+}
+
 export async function stageItems(client: SupabaseClient, run: string, items: Candidate[], stage: 'normalized' | 'enriched') {
-  for (let offset = 0; offset < items.length; offset += 100) await pipelineRpc(client, 'stage_source_events', {
-    p_run_id: run, p_items: items.slice(offset, offset + 100), p_stage: stage,
+  await writeBatches(`Stage ${stage}`, items, async (_source, batch) => {
+    await pipelineRpc(client, 'stage_source_events', { p_run_id: run, p_items: batch, p_stage: stage })
+    return {}
   })
   await pipelineRpc(client, 'complete_source_stage', { p_run_id: run, p_stage: stage, p_count: items.length })
+}
+
+export async function cleanupSource(client: SupabaseClient, source: string) {
+  let total = 0, batchSize = 100
+  // ponytail: bounded maintenance per source; a large backlog resumes next run.
+  for (let batch = 0; batch < 500; batch++) {
+    try {
+      const removed = await pipelineRpc<number>(client, 'prune_source_documents', { p_source_key: source, p_limit: batchSize })
+      total += removed
+      if (!removed) return total
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === '57014' && batchSize > 1) {
+        batchSize = Math.max(1, Math.floor(batchSize / 2))
+        continue
+      }
+      throw error
+    }
+  }
+  throw new Error(`Raw cleanup ${source}: maintenance budget reached after ${total} rows; retry next run`)
 }
 export async function loadReplay(client: SupabaseClient, run: string) {
   const metadata = await pipelineRpc<{ source_key: string; source_name: string; captured_at: string }>(client, 'get_source_pipeline', { p_run_id: run })
   if (!metadata) throw new Error('Pipeline run not found')
   const documents: RawDocument[] = []
   for (let offset = 0; ; offset += 10) {
-    const result = await client.rpc('get_source_documents', { p_run_id: run }).range(offset, offset + 9)
-    if (result.error) throw new Error(`Replay read failed: ${result.error.code}`)
-    documents.push(...result.data as RawDocument[])
-    if (result.data.length < 10) break
+    const rows = await pipelineRpc<RawDocument[]>(client, 'get_source_documents', { p_run_id: run }, [offset, offset + 9])
+    documents.push(...rows)
+    if (rows.length < 10) break
   }
   if (!documents.length) throw new Error('Run has no retained raw responses to replay')
   return { ...metadata, documents }

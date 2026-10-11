@@ -50,6 +50,10 @@ export async function fetchDo312(fetchText: FetchText, now = new Date(), days = 
     let next: string | null = `${ORIGIN}/events/${date.replaceAll('-', '/')}`
     let pages = 0
     while (next) {
+      // AJAX pagination links select JSON even when the request accepts HTML.
+      const target = new URL(next)
+      target.searchParams.delete('format')
+      next = target.href
       if (new URL(next).origin !== ORIGIN || seen.has(next) || ++pages > 50) throw new Error('Do312: unsafe or incomplete pagination')
       seen.add(next)
       const parsed = parseDo312(await fetchText(next), next)

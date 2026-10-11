@@ -42,3 +42,21 @@ test('NU Athletics marks cancellations and rejects malformed responses', async (
   await assert.rejects(fetchNuSports(async () => '{"error":"down"}'), /unexpected/)
   await assert.rejects(fetchNuSports(async () => page([game({ schedule: null })])), /missing sport/)
 })
+
+test('NU Athletics collapses identical overlap across pages and rejects conflicting occurrences', async () => {
+  const result = await fetchNuSports(async href => href.endsWith('page=1')
+    ? page([game({ id: 18057, opponent_name: 'Davidson' })], 1, 2)
+    : page([game({ id: 18057, opponent_name: 'Davidson' }), game({ id: 2 })], 2, 2))
+  assert.deepEqual(result.items.map(item => item.external_id), ['18057', '2'])
+  await assert.rejects(fetchNuSports(async href => href.endsWith('page=1')
+    ? page([game({})], 1, 2) : page([game({ opponent_name: 'Davidson' })], 2, 2)), /Conflicting occurrence identity/)
+})
+
+test('NU Athletics refuses repeated, changing, invalid or truncated pagination', async () => {
+  for (const [current, last] of [[2, 2], [1, 21], [1, 1.5], [1, -1]]) {
+    await assert.rejects(fetchNuSports(async () => page([game({})], current, last)), /pagination/)
+  }
+  await assert.rejects(fetchNuSports(async () => page([game({})], 1, 2)), /pagination/)
+  await assert.rejects(fetchNuSports(async href => href.endsWith('page=1')
+    ? page([game({})], 1, 3) : page([game({ id: 2 })], 2, 2)), /pagination/)
+})

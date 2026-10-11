@@ -13,6 +13,7 @@ function schedule(json: string) {
 
 export function parseSecondCity(json: string, now = new Date()): SourceResult {
   const result: SourceResult = { items: [], warnings: [] }
+  let unidentified = 0
   for (const raw of list(schedule(json).nodes)) {
     const show = record(raw)
     const source = url(show.uri, SITE)
@@ -29,8 +30,8 @@ export function parseSecondCity(json: string, now = new Date()): SourceResult {
     if (venues.length !== 1) result.warnings.push(`Second City ${source}: exact performance venue unavailable`)
     for (const rawInstance of tickets.instances) {
       const performance = record(rawInstance)
-      const id = string(performance.id)
-      if (!id) throw new Error(`Second City: performance missing stable ID at ${source}`)
+      if (performance.id != null && !['string', 'number'].includes(typeof performance.id)) throw new Error(`Second City: invalid performance ID at ${source}`)
+      const id = string(performance.id).trim()
       const start = iso(record(performance.formattedDates).ISO8601)
       if (Date.parse(start) < now.getTime() - 90 * 86_400_000) continue
       const levels = list(performance.allocations).flatMap(a => list(record(a).levels)).map(record)
@@ -46,6 +47,11 @@ export function parseSecondCity(json: string, now = new Date()): SourceResult {
       const registration = url(performance.purchaseUrl)
       const availability = performance.soldOut === 1 ? 'Sold out' : text(performance.onSaleLabel)
       const body = [string(attributes.description), string(performance.detail), availability].filter(Boolean).join('\n\n')
+      if (!id) {
+        unidentified++
+        result.warnings.push(`Second City: performance missing stable ID at ${source} (${start}); skipped`)
+        continue
+      }
       result.items.push({ external_id: id, related_url: null, listing_url: LISTING, data: {
         title, description: description(body, registration), cover_image_url: url(record(attributes.image).mediaItemUrl),
         start_time: start, end_time: null, location, location_url: null,
@@ -55,6 +61,7 @@ export function parseSecondCity(json: string, now = new Date()): SourceResult {
       } })
     }
   }
+  if (unidentified && !result.items.length) throw new Error('Second City: no usable performances with a stable ID')
   result.items = deduplicate(result.items)
   return result
 }

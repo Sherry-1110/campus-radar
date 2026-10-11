@@ -1,5 +1,5 @@
 import type { Candidate, FetchText, SourceResult } from '../types.ts'
-import { endOfLocalDay } from './shared.ts'
+import { deduplicate, endOfLocalDay } from './shared.ts'
 
 // Northwestern Athletics (Sidearm) schedule API, the data behind nusports.com/all-sports-schedule.
 const API = 'https://nusports.com/website-api/schedule-events?filter%5Bupcoming%5D=1&sort=datetime&per_page=100&include=opponentLogo,opponent.officialLogo,opponent.customLogo,schedule.sport'
@@ -68,8 +68,12 @@ export async function fetchNuSports(fetchText: FetchText): Promise<SourceResult>
   for (let page = 1, last = 1; page <= last; page++) {
     const body = JSON.parse(await fetchText(`${API}&page=${page}`)) as Page
     if (!Array.isArray(body.data) || !body.meta?.last_page) throw new Error('NU Athletics: unexpected schedule response')
-    last = Math.min(body.meta.last_page, 20)
+    if (body.meta.current_page !== page || !Number.isInteger(body.meta.last_page)
+      || body.meta.last_page < page || body.meta.last_page > 20
+      || (page > 1 && body.meta.last_page !== last)) throw new Error('NU Athletics: inconsistent or incomplete pagination')
+    last = body.meta.last_page
     for (const event of body.data) if (attendable(event)) result.items.push(toCandidate(event))
   }
+  result.items = deduplicate(result.items)
   return result
 }

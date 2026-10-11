@@ -108,6 +108,7 @@ begin
     if (select count(*) from public.get_staged_enrichment(cached,array['pipeline-test-1']))<>1 then raise exception 'Chained cache reuse lost enriched candidate'; end if;
     perform public.finish_source_pipeline(cached,'failed','{"error_code":"sync_failed"}');
   end loop;
+  while public.prune_source_documents('garage',1)>0 loop end loop;
   if exists(select 1 from public.get_source_documents(again)) then raise exception 'Old enrichment run should be pruned after three newer runs'; end if;
   if (select count(*) from public.get_source_documents(cached) where body in ('organizer evidence','deeper evidence'))<>2 then raise exception 'Cached replay lost evidence when its original run was pruned'; end if;
   if exists(select 1 from public.get_source_documents(cached) where body='unrelated evidence') then raise exception 'Cache carry-forward retained unrelated raw pages'; end if;
@@ -137,6 +138,11 @@ begin
     perform public.store_source_document(latest,'feed','https://pipeline-test.example/retention','https://pipeline-test.example/retention','retention body '||j);
     perform public.finish_source_pipeline(latest,'failed','{"error_code":"fetch_failed"}');
   end loop;
+  if (select count(*) from private.source_run_documents where source_key='planitpurple')<>5 then raise exception 'Finishing must not perform retention in the status transaction'; end if;
+  if public.prune_source_documents('planitpurple',1)<>2 then raise exception 'Cleanup must bound manifest and body deletion independently'; end if;
+  if public.get_source_pipeline(ids[5])->>'status'<>'failed' then raise exception 'Maintenance changed source completion status'; end if;
+  while public.prune_source_documents('planitpurple',1)>0 loop end loop;
+  perform pg_temp.expect_pipeline_error('select public.prune_source_documents(''planitpurple'',0)','Invalid cleanup');
   if (select count(*) from private.source_run_documents where source_key='planitpurple')<>3 then raise exception 'Retention must keep exactly the latest three raw runs'; end if;
   if exists(select 1 from public.get_source_documents(ids[1])) or exists(select 1 from public.get_source_documents(ids[2])) then raise exception 'Old raw runs were not pruned'; end if;
   if not exists(select 1 from public.get_source_documents(ids[3])) or not exists(select 1 from public.get_source_documents(ids[5])) then raise exception 'Retention pruned recent raw runs'; end if;
@@ -151,6 +157,7 @@ begin
     perform public.store_source_document(latest,'feed','https://pipeline-test.example/current','https://pipeline-test.example/current','current body '||j);
     perform public.finish_source_pipeline(latest,'failed','{"error_code":"fetch_failed"}');
   end loop;
+  while public.prune_source_documents('choose-chicago',1)>0 loop end loop;
   if public.get_source_pipeline(stale)->>'status' is distinct from 'failed' then raise exception 'Superseded interrupted run must become failed'; end if;
   if exists(select 1 from public.get_source_documents(stale)) then raise exception 'Interrupted run raw documents escaped retention'; end if;
 
@@ -173,6 +180,7 @@ begin
       format('select public.get_source_pipeline(%L)',run),
       format('select * from public.get_source_documents(%L)',run),
       format('select * from public.get_staged_enrichment(%L,array[''pipeline-test-1''])',run),
+      'select public.prune_source_documents(''garage'',1)',
       'select * from private.source_events', 'select * from private.source_pipeline_runs',
       'select * from private.raw_source_documents', 'select * from private.raw_garage',
       'select * from private.source_run_documents'

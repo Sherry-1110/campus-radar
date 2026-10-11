@@ -1,7 +1,7 @@
 import { appendFile, writeFile } from 'node:fs/promises'
 import { parseArgs } from 'node:util'
 import { setTimeout as delay } from 'node:timers/promises'
-import { captureSource, loadReplay, pipelineRpc, PROCESSOR_VERSION, stageItems } from './pipeline.ts'
+import { captureSource, cleanupSource, loadReplay, pipelineRpc, PROCESSOR_VERSION, stageItems, writeBatches } from './pipeline.ts'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { storePosters } from './posters.ts'
 import { enrichSource } from './enrichment.ts'
@@ -10,6 +10,8 @@ import { createJev } from './semantic.ts'
 import { evaluateJev } from './semantic-eval.ts'
 import { sources as registry } from './registry.ts'
 import type { Candidate, SourceResult } from './types.ts'
+
+export { writeBatches } from './pipeline.ts'
 
 interface Source { name: string; fetch: () => Promise<SourceResult> }
 type Apply = (source: string, items: Candidate[]) => Promise<Record<string, number>>
@@ -146,31 +148,6 @@ export async function runSync(sources: Source[], apply: Apply | null, monitor?: 
   return { completed_at: new Date().toISOString(), mode: apply ? 'apply' : 'dry-run', sources: summaries }
 }
 
-export async function writeBatches(source: string, items: Candidate[], write: Apply) {
-  const totals: Record<string, number> = {}
-  // ponytail: atomic per batch; the workflow result records whole-source
-  // success. A failed later batch leaves safe, idempotently resumable progress.
-  let batchSize = 100
-  for (let offset = 0; offset < items.length;) {
-    const batch = items.slice(offset, offset + batchSize)
-    try {
-      const stats = await write(source, batch)
-      for (const [key, value] of Object.entries(stats)) totals[key] = (totals[key] ?? 0) + value
-      offset += batch.length
-    } catch (error) {
-      // PostgreSQL canceled and rolled back this transaction. Retry fewer items,
-      // keeping earlier commits and leaving permanent/ambiguous failures visible.
-      if (error instanceof Error && 'code' in error && error.code === '57014' && batch.length > 1) {
-        batchSize = Math.floor(batch.length / 2)
-        console.warn(`${source}: database statement timed out; retrying at ${offset} with batches of ${batchSize}`)
-        continue
-      }
-      throw new Error(`${offset} candidates committed; safe to retry. ${error instanceof Error ? error.message : 'Batch failed'}`)
-    }
-  }
-  return totals
-}
-
 async function enrich(base: SourceResult, fetchPage: typeof fetchOriginal, now: Date) {
   const mode = process.env.JEV_MODE
   if (!['shadow', 'apply'].includes(mode || '') || !base.items.some(i => i.related_url)) return enrichSource(base, fetchPage, now)
@@ -189,8 +166,9 @@ async function enrich(base: SourceResult, fetchPage: typeof fetchOriginal, now: 
 async function main() {
   const { values } = parseArgs({ options: {
     apply: { type: 'boolean', default: false }, 'dry-run': { type: 'boolean', default: false },
-    replay: { type: 'string' }, source: { type: 'string', default: 'all' }, report: { type: 'string', default: 'sync-report.json' },
+    cleanup: { type: 'boolean', default: false }, replay: { type: 'string' }, source: { type: 'string', default: 'all' }, report: { type: 'string', default: 'sync-report.json' },
   } })
+  if (values.cleanup && (!values.apply || values.replay)) throw new Error('Cleanup requires --apply and cannot replay')
   if (values.apply && values['dry-run']) throw new Error('Choose --apply or --dry-run')
   if (!['all', ...registry.map(source => source.id)].includes(values.source)) throw new Error('Unknown --source')
   let apply: Apply | null = null
@@ -212,6 +190,15 @@ async function main() {
       clock.setTime(Date.parse(replay.captured_at))
     }
   }
+  if (values.cleanup && client) {
+    let failed = false
+    for (const source of registry.filter(s => values.source === 'all' || s.id === values.source)) {
+      try { console.log(`${source.name}: reclaimed ${await cleanupSource(client, source.id)} raw rows`) }
+      catch (error) { failed = true; console.error(error instanceof Error ? error.message : 'Raw cleanup failed') }
+    }
+    if (failed) process.exitCode = 1
+    return
+  }
   if (values.apply && client) {
     const db = client
     monitor = {
@@ -222,21 +209,18 @@ async function main() {
         return data as string
       },
       finish: async (runId, summary) => {
-        const { error } = await db.rpc('finish_source_pipeline', {
+        await pipelineRpc(db, 'finish_source_pipeline', {
           p_run_id: runId, p_status: summary.status === 'applied' ? 'succeeded' : 'failed',
           p_summary: { ...summary.changes, candidates: summary.candidates, posters: summary.posters, error_code: summary.error_code,
             detail_checked: summary.details?.checked ?? 0, detail_enriched: summary.details?.enriched ?? 0, detail_failed: summary.details?.failed ?? 0 },
         })
-        if (error) throw new Error(`Cannot finish source monitor: ${error.code}`)
       },
     }
     apply = async (source, items) => {
       const { failures: _, ...posters } = await storePosters(db, items.flatMap(item => item.data.cover_image_url ? [item.data.cover_image_url] : []), undefined, 5 * 60_000)
       console.log(JSON.stringify({ poster_storage: posters }))
       return writeBatches(source, items, async (name, batch) => {
-        const { data, error } = await db.rpc('publish_staged_events', { p_external_ids: batch.map(item => item.external_id), p_run_id: runIds.get(name) })
-        if (error) throw Object.assign(new Error(`Database sync ${error.code}: ${error.message}`), { code: error.code })
-        return data as Record<string, number>
+        return pipelineRpc<Record<string, number>>(db, 'publish_staged_events', { p_external_ids: batch.map(item => item.external_id), p_run_id: runIds.get(name) })
       })
     }
   }
