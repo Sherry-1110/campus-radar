@@ -457,12 +457,15 @@ Bounded backend storage, staging, metadata and category RPCs have a 30-second
 statement budget; public/client role limits are unchanged. Raw storage checks for
 an existing body hash before attempting another large insert.
 
-Source completion commits before raw retention. A separate maintenance job runs
+Source completion commits before raw retention. After coordinate and category jobs
+finish, a separate maintenance job runs
 `npm run sync:events -- --apply --cleanup`, removing at most 100 manifest rows and
 100 unreferenced bodies per transaction (smaller after timeouts). It keeps the
 latest three completed captures and all running captures. Cleanup failure remains
 visible in its own job and can be retried without changing event or source status.
-The category queue groups identical recurring text before hashing/cache lookup.
+Maintenance waits for enrichment even after a partial failure, so raw-body cleanup
+cannot contend with category or coordinate reads. The category queue groups
+identical recurring text before hashing/cache lookup.
 
 Do312 pagination requests HTML even when its next link selects JSON. NU Athletics
 collapses identical pagination overlaps and rejects conflicting copies or incomplete

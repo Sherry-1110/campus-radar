@@ -134,7 +134,8 @@ jobs:
 
   cleanup:
     name: Prune retained raw responses
-    needs: sync
+    # Raw-body deletion competes for database IO with category and coordinate reads.
+    needs: [sync, coordinates, categories]
     if: ${{ always() && !cancelled() && !inputs.coordinates_only && (github.event_name == 'schedule' || github.event_name == 'push' || inputs.apply) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
