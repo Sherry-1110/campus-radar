@@ -4,6 +4,7 @@ import { useLang } from '@/lib/i18n'
 /** Up to three site categories, with a neutral tag for events outside those groups. */
 export function CategoryChips({ event }: { event: { category: EventCategory; categories?: EventCategory[] } }) {
   const { t } = useLang()
+  if (event.categories?.length === 0) return null
   const metas = eventGroups(event)
   if (!metas.length) metas.push(categoryMeta('other'))
   return (

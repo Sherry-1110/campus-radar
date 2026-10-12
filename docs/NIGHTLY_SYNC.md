@@ -373,13 +373,14 @@ automatically. Existing records are processed by the same job, not a separate
 one-time classifier. Explicit category arrays that differ from the existing
 classifier are preserved during backfill.
 
-The job checks seven live examples before writing, processes up to 5,000 distinct
+The job checks eight live examples before writing, processes up to 5,000 distinct
 texts with six workers and a 20-minute budget, and records totals in the Actions
 summary. Noul answers >=0.8 become tags. If none qualifies, all six must be <=0.2
-to use the neutral Event tag; otherwise existing rule-based tags remain and retry next time. Attempt timestamps rotate
-retries behind untried text; paginated reads avoid the API row cap. API/database failures are
+to use the neutral Event tag; otherwise a focused Choice pass compares the current
+groups. Unresolved results stay untagged under All and wait for changed text. API
+failures rotate behind untried text; paginated reads avoid the API row cap. API/database failures are
 reported separately and never roll back source ingestion. No API key reaches the
-frontend. Changes to the model, prompts or taxonomy require an evaluation and a
+frontend. Changes to the model, first-pass prompts or taxonomy require an evaluation and a
 new cache version in both the worker and migration.
 
 
@@ -473,3 +474,18 @@ pagination. Second City skips otherwise valid performances without ticket IDs wi
 an explicit warning; invalid schemas and pages containing only unidentified
 performances still fail. Existing events are never cancelled because a listing is
 missing or an unidentified performance was skipped.
+
+### Unresolved categories
+
+Classification uses only the six frontend groups and current Jev judgments; the
+legacy keyword/source-category fallback is no longer used. Confident multi-label
+results are retained. Borderline results get one comparative Choice judgment over
+the six groups plus “none fits”. Both passes' scores are stored in the existing
+private cache. A confident no-match uses `other`; an unresolved result has an
+empty event category array, no category chip, and stays visible under All (existing
+internal/staff visibility rules still apply).
+
+Completed unresolved judgments are not retried for identical text. Changed text
+queues a fresh classification; transport/API failures remain retryable. Accepted
+judgments for identical text and explicit curator arrays are preserved. The
+migration also clears existing derived legacy tags and recomputes visibility.

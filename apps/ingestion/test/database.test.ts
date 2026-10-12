@@ -23,7 +23,19 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     `)
     const migrations = new URL('../../../supabase/migrations/', import.meta.url)
     for (const file of (await readdir(migrations)).filter(f => f.endsWith('.sql')).sort()) {
+      if (file.endsWith('_resolve_uncertain_categories.sql')) {
+        await db.exec(`insert into public.events(school_id,title,start_time,category,status)
+          select id,'Backfill concert',now(),'music','published' from public.schools limit 1;
+          insert into public.events(school_id,title,start_time,category,status)
+          select id,'Curated concert',now(),'music','published' from public.schools limit 1;
+          update public.events set categories=array['play']::public.event_category[] where title='Curated concert';`)
+      }
       await db.exec(await readFile(new URL(file, migrations), 'utf8'))
+      if (file.endsWith('_resolve_uncertain_categories.sql')) {
+        assert.deepEqual((await db.query<{categories:string[]}>("select categories::text[] as categories from public.events where title='Backfill concert'")).rows[0].categories, [])
+        assert.deepEqual((await db.query<{categories:string[]}>("select categories::text[] as categories from public.events where title='Curated concert'")).rows[0].categories, ['play'])
+        await db.exec("delete from public.events where title in ('Backfill concert','Curated concert')")
+      }
     }
     const functions = await db.query("select 1 from pg_proc where proname = 'sync_source_events' and pronamespace='public'::regnamespace")
     assert.equal(functions.rows.length, 1, 'The service-only nightly sync RPC must exist')
@@ -243,6 +255,7 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     tagged.data.category = 'other'; tagged.data.source_url = 'https://www.choosechicago.com/event/jev-1/'
     await sync([tagged], 'Choose Chicago')
     const labels = async () => (await db.query<{categories: string[]; category: string}>("select categories::text[] as categories,category from events where source_url=$1", [tagged.data.source_url])).rows[0]
+    assert.deepEqual((await labels()).categories, [], 'Unclassified events must not inherit legacy rule tags')
     const remember = () => db.query<{count: number}>("select public.remember_event_categories($1,$2,array['music','market']::public.event_category[],'{}','fun-v1','jev-1.13.0') as count", [tagged.data.title, tagged.data.description])
     await db.exec('set role service_role')
     assert.equal((await remember()).rows[0].count, 1)
@@ -276,6 +289,15 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
       await assert.rejects(remember(), /permission denied/)
       await db.exec('reset role')
     }
+
+    // A completed but uncertain second pass is visible under All and not retried unchanged.
+    await db.query("select public.remember_event_categories($1,$2,null,'{\"resolution\":{\"type\":\"choice\"}}','fun-v1','jev-1.13.0')", [pendingFirst.title,pendingFirst.description])
+    assert.equal((await db.query('select * from public.pending_event_categories() where title=$1 and description=$2', [pendingFirst.title,pendingFirst.description])).rows.length, 0)
+    assert.equal((await db.query("select 1 from public.events where title=$1 and coalesce(description,'')=$2 and cardinality(categories)>0", [pendingFirst.title,pendingFirst.description])).rows.length, 0)
+    await db.query("insert into public.events(school_id,source_id,title,start_time,status,category) select school_id,source_id,'Mystery campus outing',now()+interval '1 day','published','sports' from public.events where source_id=(select id from public.sources where name='PlanItPurple') limit 1")
+    const unknown = (await db.query<{categories:string[];is_hidden:boolean}>("select categories::text[] as categories,is_hidden from public.events where title='Mystery campus outing'")).rows[0]
+    assert.deepEqual(unknown.categories, [])
+    assert.equal(unknown.is_hidden, false, 'Unresolved campus events remain browseable')
 
     await db.exec(await readFile(new URL('../../../supabase/tests/source_pipeline.sql', import.meta.url), 'utf8'))
 

@@ -43,7 +43,7 @@ export function categoryMeta(category: EventCategory): CategoryMeta {
 
 /** The site categories an event belongs to, at most three, in its own order. Empty for talks and the like. */
 export function eventGroups(event: { category: EventCategory; categories?: EventCategory[] }): CategoryMeta[] {
-  const all = event.categories?.length ? event.categories : [event.category]
+  const all = event.categories ?? [event.category]
   return [...new Map(all.flatMap((c) => { const g = groupOf(c); return g ? [[g, BY_GROUP[g]] as const] : [] })).values()].slice(0, 3)
 }
 
