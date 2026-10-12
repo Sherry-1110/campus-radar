@@ -138,3 +138,71 @@ test('a listing that links to the event by its exact title is followed to the ev
   assert.equal(result.items[0]!.data.cover_image_url,'https://museum.org/pokemon.jpg')
   assert.equal(result.items[0]!.data.source_url,'https://museum.org/exhibition/pokemon')
 })
+
+test('reaches an original event through a publisher and a venue directory',async()=>{
+  const candidate={...item,related_url:'https://do312.com/events/concert'}
+  const directory='https://organizer.org/calendar',original='https://organizer.org/full'
+  const pages:Record<string,string>={
+    [candidate.related_url]:`<div class="ds-event-detail"><h1>${item.data.title}</h1><a class="ds-buy-tix" href="${directory}">Tickets</a></div>`,
+    [directory]:`<main><h1>Calendar</h1><a href="${original}">${item.data.title}</a></main>`,
+    [original]:html({...event,url:original}),
+  }
+  const result=await enrichSource({items:[candidate],warnings:[]},async url=>({url,html:pages[url]!}),new Date('2026-09-20'))
+  assert.equal(result.items[0]!.data.source_url,original)
+  assert.match(result.items[0]!.data.description!,/three student ensembles/)
+})
+
+test('tries another verified event link when the first fails or redirects back',async()=>{
+  for(const failure of ['unavailable','loop']) {
+    const original='https://organizer.org/full'
+    const result=await enrichSource({items:[item],warnings:[]},async url=>{
+      if(url.endsWith('/broken')) {
+        if(failure==='unavailable') throw Error('404')
+        return {url:item.related_url!,html:html({...event,description:'',url:'https://organizer.org/broken',sameAs:original})}
+      }
+      return {url,html:html(url===original?{...event,url:original}:{...event,description:'',url:'https://organizer.org/broken',sameAs:original})}
+    },new Date('2026-09-20'))
+    assert.equal(result.items[0]!.data.source_url,original)
+    assert.match(result.items[0]!.data.description!,/three student ensembles/)
+  }
+})
+
+test('image-only publisher enrichment remains retryable until description is recovered',async()=>{
+  const candidate={...item,data:{...item.data,description:null}}
+  const result=await enrichSource({items:[candidate],warnings:[]},async url=>({url,html:html({...event,description:''})}),new Date('2026-09-20'))
+  assert.equal(result.items[0]!.enrichment?.status,'unavailable')
+  assert.equal(result.items[0]!.data.cover_image_url,'https://organizer.org/poster.jpg')
+})
+
+test('keeps the preferred original page after it supplies event details',async()=>{
+  const original='https://organizer.org/full'
+  const visits:string[]=[]
+  const result=await enrichSource({items:[item],warnings:[]},async url=>{
+    visits.push(url)
+    return {url,html:html(url===item.related_url?{...event,url:original,sameAs:'https://calendar.org/alternate'}:{...event,url})}
+  },new Date('2026-09-20'))
+  assert.deepEqual(visits,[item.related_url,original])
+  assert.equal(result.items[0]!.data.source_url,original)
+})
+
+test('bounded unfinished original-page chains remain retryable',async()=>{
+  let calls=0
+  const result=await enrichSource({items:[item],warnings:[]},async url=>{
+    calls++
+    return {url,html:html({...event,url:`https://organizer.org/page-${calls}`})}
+  },new Date('2026-09-20'))
+  assert.equal(calls,4)
+  assert.equal(result.items[0]!.enrichment?.status,'unavailable')
+  assert.equal(result.details?.skipped,1)
+})
+
+test('a verified terminal fallback completes despite a failed earlier link',async()=>{
+  const original='https://organizer.org/full'
+  const result=await enrichSource({items:[item],warnings:[]},async url=>{
+    if(url.endsWith('/broken')) throw Error('404')
+    return {url,html:html(url===original?{...event,url:original}:{...event,url:'https://organizer.org/broken',sameAs:original})}
+  },new Date('2026-09-20'))
+  assert.equal(result.items[0]!.enrichment?.status,'enriched')
+  assert.equal(result.items[0]!.data.source_url,original)
+  assert.equal(result.details?.failed,1)
+})

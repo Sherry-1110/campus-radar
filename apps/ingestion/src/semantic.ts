@@ -8,7 +8,7 @@ import { record, text, string } from './sources/shared.ts'
 import type { Candidate } from './types.ts'
 
 const MODEL='jev-1.13.0'
-const VERSION='event-evidence-v3'
+const VERSION='event-evidence-v4'
 type Block={id:string;heading:string;text:string}
 type Image={id:string;url:string;context:string}
 type Link={id:string;url:string;label:string}
@@ -29,15 +29,24 @@ export function buildEvidence(html:string,url:string,item:Candidate) {
   const body=root.length?root:$('body').clone()
   body.find('script,style,nav,header,footer,aside,form,button,[aria-hidden="true"],.breadcrumb,.breadcrumbs,.section-sponsors,.section-text-cta,.section-cards,.section-large-cards').remove()
   const blocks:Block[]=[];let heading='';let size=0
-  for(const el of body.find(do312?'h1,h2,h3,h4,p,li,.ds-event-description-inner':'h1,h2,h3,h4,p,li').toArray()) {
+  for(const el of body.find(do312?'h1,h2,h3,h4,p,li,.ds-event-description-inner,.ds-event-description-inner div':'h1,h2,h3,h4,p,li,div').toArray()) {
     const node=$(el),value=text(node.html())
     if(/^h[1-4]$/.test(el.tagName)){heading=value.slice(0,200);continue}
-    if(node.is('li,.ds-event-description-inner')&&node.find('p,li').length) continue
-    if(value.length<30||value.length>2000||blocks.some(b=>b.text===value)) continue
-    if(blocks.length>=32||size+value.length>16000) break
-    blocks.push({id:`b${blocks.length}`,heading,text:value});size+=value.length
+    if(node.is('li,div')&&node.find('h1,h2,h3,h4,p,li,div').length) continue
+    // Long descriptions and plain divs are common on publisher and ticket pages.
+    if(value.length<30) continue
+    let remaining=value
+    while(remaining.length) {
+      const end=remaining.length<=2000?remaining.length:remaining.lastIndexOf(' ',2000)>0?remaining.lastIndexOf(' ',2000):2000
+      const passage=remaining.slice(0,end).trim()
+      remaining=remaining.slice(end).trim()
+      if(blocks.some(b=>b.text===passage)) continue
+      if(blocks.length>=32||size+passage.length>16000) break
+      blocks.push({id:`b${blocks.length}`,heading,text:passage});size+=passage.length
+    }
+    if(blocks.length>=32||size>=16000) break
   }
-  if(!blocks.length){const value=text($('meta[property="og:description"]').attr('content')).slice(0,2000);if(value)blocks.push({id:'b0',heading:title,text:value})}
+  if(!blocks.length&&!do312){const value=text($('meta[property="og:description"]').attr('content')).slice(0,2000);if(value)blocks.push({id:'b0',heading:title,text:value})}
   const images:Image[]=[]
   const addImage=(raw:unknown,context:string)=>{const value=image(raw,url);if(value&&images.length<12&&!images.some(i=>i.url===value)) images.push({id:`i${images.length}`,url:value,context:`${new URL(value).pathname.split('/').pop()}: ${context}`.slice(0,350)})}
   addImage($('meta[property="og:image"]').attr('content'),`Page social image for ${title}`)
@@ -78,7 +87,7 @@ export function interpret(state:Evidence,raw:unknown):Decision {
     const p=record(a.probabilities),keys=Object.keys(q.criteria!)
     if(!keys.includes(string(a.choice))||Object.keys(p).length!==keys.length)throw Error('Invalid Jev choice')
     const values=keys.map(k=>probability(p[k]))
-    if(Math.abs(values.reduce((a,b)=>a+b,0)-1)>0.02||Number(p[string(a.choice)])<Math.max(...values)-0.001)throw Error('Inconsistent Jev probabilities')
+    if(Math.abs(values.reduce((a,b)=>a+b,0)-1)>keys.length*0.005+Number.EPSILON||Number(p[string(a.choice)])<Math.max(...values)-0.001)throw Error('Inconsistent Jev probabilities')
   }
   const relation=record(answers.relationship),label=string(relation.choice)
   const audit:Audit={outcome:'uncertain',model:MODEL,page_hash:hash(JSON.stringify(state)),relationship:label,confidence:Number(relation.confidence),block_scores:Object.fromEntries(state.blocks.map(b=>[b.id,Number(record(answers[`block_${b.id}`]).noul)])),image_choice:string(record(answers.image).choice),image_confidence:Number(record(answers.image).confidence)||0}

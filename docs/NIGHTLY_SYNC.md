@@ -373,11 +373,12 @@ automatically. Existing records are processed by the same job, not a separate
 one-time classifier. Explicit category arrays that differ from the existing
 classifier are preserved during backfill.
 
-The job checks eight live examples before writing, processes up to 5,000 distinct
+The job checks nine live examples before writing, processes up to 5,000 distinct
 texts with six workers and a 20-minute budget, and records totals in the Actions
 summary. Noul answers >=0.8 become tags. If none qualifies, all six must be <=0.2
-to use the neutral Event tag; otherwise a focused Choice pass compares the current
-groups. Unresolved results stay untagged under All and wait for changed text. API
+to use the neutral Event tag. Borderline labels get one focused independent Noul
+review, including uncertain secondary labels beside a confident primary. Labels do
+not compete for probability mass; several can qualify simultaneously. Unresolved results stay untagged under All and wait for changed text. API
 failures rotate behind untried text; paginated reads avoid the API row cap. API/database failures are
 reported separately and never roll back source ingestion. No API key reaches the
 frontend. Changes to the model, first-pass prompts or taxonomy require an evaluation and a
@@ -479,13 +480,32 @@ missing or an unidentified performance was skipped.
 
 Classification uses only the six frontend groups and current Jev judgments; the
 legacy keyword/source-category fallback is no longer used. Confident multi-label
-results are retained. Borderline results get one comparative Choice judgment over
-the six groups plus “none fits”. Both passes' scores are stored in the existing
+results are retained. Borderline tags get one independent Noul review; a confident
+primary tag does not skip uncertain secondary tags. Both passes' scores are stored in the existing
 private cache. A confident no-match uses `other`; an unresolved result has an
 empty event category array, no category chip, and stays visible under All (existing
 internal/staff visibility rules still apply).
 
 Completed unresolved judgments are not retried for identical text. Changed text
 queues a fresh classification; transport/API failures remain retryable. Accepted
-judgments for identical text and explicit curator arrays are preserved. The
-migration also clears existing derived legacy tags and recomputes visibility.
+independent judgments for identical text and explicit curator arrays are preserved.
+The decision-policy migration requeues old exclusive Choice decisions and ignored
+borderline secondary tags, while retaining the unchanged first-pass model/taxonomy
+cache version. Completed independent reviews, even unresolved ones, replace those
+old decisions. A transport failure cannot erase an accepted decision.
+
+### Original-source and description completeness
+
+The shared processor follows up to four linked pages per occurrence, tries
+alternatives after failed or looping links, and retains only verified original-source
+URLs. Explicit publisher links can be explored when semantic identity is uncertain;
+that does not authorize copying the uncertain page's prose. Source text in plain
+divs and passages longer than 2,000 characters is available to semantic selection.
+Do312's generic “Check out … get detailed info” metadata is not a description.
+
+An image/source-only result remains retryable. Cached enrichment must contain a
+nonblank description; processor `shared-v2` invalidates older extraction results.
+Verified descriptions and stored posters are retained when another fetch fails.
+The existing 400-page/eight-minute source budget still bounds fetches; successful
+complete records leave the work queue through the seven-day cache, allowing later
+runs to work through the remaining records.

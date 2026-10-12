@@ -89,6 +89,9 @@ begin
   cached := public.begin_source_pipeline('The Garage',null,'2099-10-03Z','test-v1');
   perform public.stage_source_events(cached,jsonb_build_array(changed),'normalized');
   if (select count(*) from public.get_staged_enrichment(cached,array['pipeline-test-1']))<>1 then raise exception 'Unchanged input/version must reuse successful enrichment'; end if;
+  update private.source_events set enriched=jsonb_set(enriched,'{data,description}','null'::jsonb) where run_id=cached;
+  if exists(select 1 from public.get_staged_enrichment(cached,array['pipeline-test-1'])) then raise exception 'Poster/source-only enrichment must retry the missing description'; end if;
+  update private.source_events set enriched=enriched_input where run_id=cached;
   if (select count(*) from public.get_source_documents(cached) where scope='original')<>2 then raise exception 'Cached run must retain only its supporting original pages, including redirect evidence'; end if;
   perform public.complete_source_stage(cached,'normalized',1);
   perform public.stage_source_events(cached,jsonb_build_array(enriched_input),'enriched');

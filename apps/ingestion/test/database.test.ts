@@ -290,14 +290,28 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
       await db.exec('reset role')
     }
 
-    // A completed but uncertain second pass is visible under All and not retried unchanged.
+    // Old competing choices must be reconsidered; independent decisions can complete unresolved.
     await db.query("select public.remember_event_categories($1,$2,null,'{\"resolution\":{\"type\":\"choice\"}}','fun-v1','jev-1.13.0')", [pendingFirst.title,pendingFirst.description])
+    assert.equal((await db.query('select * from public.pending_event_categories() where title=$1 and description=$2', [pendingFirst.title,pendingFirst.description])).rows.length, 1, 'Old exclusive choices must get the multi-label review')
+    await db.query("select public.remember_event_categories($1,$2,null,'{\"resolution\":{\"type\":\"multi-label\"}}','fun-v1','jev-1.13.0')", [pendingFirst.title,pendingFirst.description])
     assert.equal((await db.query('select * from public.pending_event_categories() where title=$1 and description=$2', [pendingFirst.title,pendingFirst.description])).rows.length, 0)
     assert.equal((await db.query("select 1 from public.events where title=$1 and coalesce(description,'')=$2 and cardinality(categories)>0", [pendingFirst.title,pendingFirst.description])).rows.length, 0)
     await db.query("insert into public.events(school_id,source_id,title,start_time,status,category) select school_id,source_id,'Mystery campus outing',now()+interval '1 day','published','sports' from public.events where source_id=(select id from public.sources where name='PlanItPurple') limit 1")
     const unknown = (await db.query<{categories:string[];is_hidden:boolean}>("select categories::text[] as categories,is_hidden from public.events where title='Mystery campus outing'")).rows[0]
     assert.deepEqual(unknown.categories, [])
     assert.equal(unknown.is_hidden, false, 'Unresolved campus events remain browseable')
+
+    await db.query("update events set description=$1 where source_url=$2", [recurrence.data.description,tagged.data.source_url])
+    await db.query("update events set categories=array['social']::public.event_category[] where source_url=$1", [tagged.data.source_url])
+    // A confident primary must not strand an uncertain secondary forever.
+    await db.query("select public.remember_event_categories($1,$2,array['music']::public.event_category[],'{\"music\":{\"type\":\"noul\",\"noul\":0.99},\"fests\":{\"type\":\"noul\",\"noul\":0.65}}','fun-v1','jev-1.13.0')", [recurrence.data.title,recurrence.data.description])
+    assert.equal((await db.query('select * from public.pending_event_categories() where title=$1 and description=$2', [recurrence.data.title,recurrence.data.description])).rows.length, 1)
+    await db.query("select public.remember_event_categories($1,$2,null,'{\"resolution\":{\"type\":\"multi-label\"}}','fun-v1','jev-1.13.0')", [recurrence.data.title,recurrence.data.description])
+    assert.equal((await db.query('select * from public.pending_event_categories() where title=$1 and description=$2', [recurrence.data.title,recurrence.data.description])).rows.length, 0, 'Completed independent uncertainty must replace unreviewed secondary scores and leave the queue')
+    await db.query("select public.remember_event_categories($1,$2,array['music']::public.event_category[],'{\"resolution\":{\"type\":\"choice\"}}','fun-v1','jev-1.13.0')", [recurrence.data.title,recurrence.data.description])
+    await db.query("select public.remember_event_categories($1,$2,null,'{\"resolution\":{\"type\":\"multi-label\"}}','fun-v1','jev-1.13.0')", [recurrence.data.title,recurrence.data.description])
+    assert.deepEqual((await db.query<{categories:string[]}>("select categories::text[] as categories from events where source_url=$1", [recurrence.data.source_url])).rows[0].categories, [], 'An uncertain replacement must clear an old exclusive-choice label')
+    assert.deepEqual((await labels()).categories, ['social'], 'Curator categories survive the decision-policy correction')
 
     await db.exec(await readFile(new URL('../../../supabase/tests/source_pipeline.sql', import.meta.url), 'utf8'))
 

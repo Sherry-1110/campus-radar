@@ -113,3 +113,56 @@ test('a listing page the model rejects still lends the picture beside the event 
   assert.equal(result.items[0].data.source_url,listing.data.source_url,'A listing is not the event page')
   assert.equal(result.items[0].data.description,null)
 })
+
+test('keeps long plain-div organizer prose as bounded evidence blocks',()=>{
+  const paragraph='A local ensemble presents new arrangements and shares the stories behind the music. '.repeat(32)+'Doors open at six and wheelchair access is available at the side entrance.'
+  for(const url of ['https://do312.com/events/concert','https://organizer.org/concert']) {
+    const html=`<main class="ds-event-detail"><h1>${item.data.title}</h1><div class="ds-event-description-inner">${paragraph}</div></main>`
+    const evidence=buildEvidence(html,url,item)
+    assert.ok(evidence.blocks.length>1)
+    assert.ok(evidence.blocks.every(b=>b.text.length<=2000))
+    assert.equal(evidence.blocks.map(b=>b.text).join(' '),paragraph)
+  }
+})
+
+test('an uncertain intermediary still follows its explicit event link without copying its text',async()=>{
+  const target='https://organizer.org/full'
+  const listing={...item,related_url:'https://do312.com/events/mass'}
+  const result=await enrichSource({items:[listing],warnings:[]},async url=>({url,html:url===target?'<h1>Catholic Mass, Evanston Campus</h1>':`<div class="ds-event-detail"><h1>${item.data.title}</h1><a class="ds-buy-tix" href="${target}">Tickets</a><div class="ds-event-description-inner">Unverified intermediary prose must never be copied into the event description.</div></div>`}),new Date('2026-09-20'),{mode:'apply',select:async(_html,url)=>url===target?{detail:{description:'Sunday worship in the Evanston chapel, followed by a reception for students and visitors.',image:null,next:[]},audit:{outcome:'accepted',model:'jev-1.13.0',page_hash:'test'}}:{detail:null,audit:{outcome:'uncertain',model:'jev-1.13.0',page_hash:'test'}}})
+  assert.equal(result.items[0]!.data.source_url,target)
+  assert.match(result.items[0]!.data.description!,/reception/)
+  assert.doesNotMatch(result.items[0]!.data.description!,/Unverified/)
+})
+
+test('a semantic text selection does not veto an explicit publisher event link',async()=>{
+  const target='https://organizer.org/full'
+  const listing={...item,related_url:'https://do312.com/events/mass'}
+  const visits:string[]=[]
+  await enrichSource({items:[listing],warnings:[]},async url=>{visits.push(url);return {url,html:`<div class="ds-event-detail"><h1>${item.data.title}</h1><a class="ds-buy-tix" href="${target}">Tickets</a></div>`}},new Date('2026-09-20'),{mode:'apply',select:async()=>({detail:{description:null,image:null,next:[]},audit:{outcome:'accepted',model:'jev-1.13.0',page_hash:'test'}})})
+  assert.deepEqual(visits,[listing.related_url,target])
+})
+
+test('accepts independently rounded choice probabilities within their rounding interval',()=>{
+  const pictures=Array.from({length:12},(_,i)=>`<img src="/event-${i}.jpg" alt="Event ${i}">`).join('')
+  const evidence=buildEvidence(page.replace('<article>',`<article>${pictures}`),item.related_url!,item)
+  const raw=response(buildRequest(evidence))
+  const choices=Object.keys(buildRequest(evidence).questions.image.criteria!)
+  raw.answers.image={type:'choice',choice:'i0',confidence:0.99,probabilities:Object.fromEntries(choices.map(c=>[c,c==='i0'?0.91:0.01]))}
+  assert.equal(interpret(evidence,raw).audit.outcome,'accepted')
+  raw.answers.image={type:'choice',choice:'i0',confidence:0.99,probabilities:Object.fromEntries(choices.map(c=>[c,c==='i0'?0.91:0.03]))}
+  assert.throws(()=>interpret(evidence,raw),/probabilities/)
+})
+
+test('terminal uncertainty or service failure remains retryable after a verified publisher',async()=>{
+  for(const outcome of ['uncertain','failed'] as const) {
+    const result=await enrichSource({items:[item],warnings:[]},async url=>({url,html:`<h1>${item.data.title}</h1><main><p>Sunday worship in the Evanston chapel, followed by a reception for students and visitors.</p></main>`}),new Date('2026-09-20'),{mode:'apply',select:async(_html,url)=>url===item.related_url?{detail:{description:'Sunday worship in the Evanston chapel, followed by a reception for students and visitors.',image:null,next:['https://organizer.org/terminal']},audit:{outcome:'accepted',model:'jev-1.13.0',page_hash:'test'}}:{detail:null,audit:{outcome,model:'jev-1.13.0',page_hash:'test'}}})
+    assert.equal(result.items[0]!.enrichment?.status,'unavailable')
+  }
+})
+
+test('reads nested Do312 description divs without including unrelated publisher divs',()=>{
+  const prose='Join the local ensemble for new arrangements, stories behind the music, and a reception after the concert.'
+  const html=`<div class="ds-event-detail"><h1>${item.data.title}</h1><div>Unrelated publisher promotions should stay outside the event evidence.</div><div class="ds-event-description-inner"><div><div>${prose}</div></div></div></div>`
+  const evidence=buildEvidence(html,'https://do312.com/events/concert',item)
+  assert.deepEqual(evidence.blocks.map(block=>block.text),[prose])
+})

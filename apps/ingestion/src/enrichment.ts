@@ -156,7 +156,7 @@ export function extractDetail(html: string, pageUrl: string, item: Candidate) {
   }
   // Visible article content is often newer than stale article metadata.
   const structuredDescription=text(event?.description)
-  const description=pageMatches && (!structuredDescription || /(?:…|\.{3})$/.test(structuredDescription)) && article.length>=80 && article.length>structuredDescription.length ? article : structuredDescription || text($('meta[property="og:description"]').attr('content')||$('meta[name="description"]').attr('content'))
+  const description=pageMatches && (!structuredDescription || /(?:…|\.{3})$/.test(structuredDescription)) && article.length>=80 && article.length>structuredDescription.length ? article : structuredDescription || (do312?'':text($('meta[property="og:description"]').attr('content')||$('meta[name="description"]').attr('content')))
   const titleTokens=words(item.data.title),year=occurrence.slice(0,4)
   const visiblePoster=content.find('img').toArray().map(el=>{
     const n=$(el),url=image(n.attr('data-src'),pageUrl)||image(n.attr('src'),pageUrl)
@@ -225,28 +225,40 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
       const base=Object.fromEntries(managed.map(k=>[k,item.data[k]]))
       const chain:string[]=[]
       const fields=new Set<typeof managed[number]>()
-      let target=link(item.related_url!,item.data.source_url)
+      const first=link(item.related_url!,item.data.source_url)
+      const pending=first?[first]:[],visited=new Set<string>()
       let failed=false
-      for(let depth=0;target && depth<2 && !chain.includes(target);depth++){
-        if(!cache.has(target) && (cache.size>=400||Date.now()-started>8*60_000)){details.skipped++;break}
-        if(!depth) details.checked++
+      // shortcut: four pages per occurrence; increase only if verified chains need more hops.
+      while(pending.length && visited.size<4){
+        const target=pending.shift()!
+        if(visited.has(target)) continue
+        visited.add(target)
+        if(!cache.has(target) && (cache.size>=400||Date.now()-started>8*60_000)){details.skipped++;failed=true;break}
+        if(visited.size===1) details.checked++
         try{
-          const page=await get(target);chain.push(page.url)
+          const page=await get(target)
+          if(chain.includes(page.url)) continue
+          chain.push(page.url)
           let extracted:(Detail&{listing?:boolean})|null=extractDetail(page.html,page.url,item)
+          let verified=true
           if(semantic) {
             const decision=await semantic.select(page.html,page.url,item)
             ;(item.semantic??=[]).push(decision.audit)
             if(semantic.mode==='apply') {
+              verified=decision.audit.outcome==='accepted'
+              if(decision.audit.outcome==='uncertain') failed=true
               if(decision.audit.outcome==='failed'){failed=true;details.failed++}
               if(decision.audit.outcome==='deferred'){failed=true;details.skipped++}
-              // A model rejection/uncertainty never falls through to weaker page matching.
+              // Rejected/uncertain prose stays excluded; explicit links may still lead to verifiable evidence.
               // On service/budget failure the existing rules remain available.
               // A rejected listing page (a library's exhibits, a venue's program list) may still show the event's
-              // picture beside its exact title: keep only that image, never the page's text or link.
-              if(!['failed','deferred'].includes(decision.audit.outcome)) extracted=decision.detail ?? (extracted?.listing ? extracted : null)
+              // picture and exact-title event links, never the listing page's text or source URL.
+              if(decision.detail) extracted={...decision.detail,next:[...new Set([...decision.detail.next,...(extracted?.next||[])])]}
+              else if(decision.audit.outcome==='uncertain' && extracted?.next.length) extracted={description:null,image:null,next:extracted.next,listing:true}
+              else if(!['failed','deferred'].includes(decision.audit.outcome)) extracted=extracted?.listing?extracted:null
             }
           }
-          if(!extracted) break
+          if(!extracted) continue
           const known=words(item.data.description||'').join(' ')
           const extra=(extracted.description||'').split(/\n{2,}/).filter(p=>{
             const normalized=words(p).join(' ')
@@ -259,15 +271,19 @@ export async function enrichSource(result: SourceResult, fetchPage: FetchPage, n
           }
           if(extracted.image){item.data.cover_image_url=extracted.image;fields.add('cover_image_url')}
           if(!extracted.listing){item.data.source_url=page.url;fields.add('source_url')}
-          target=extracted.next[0]||null
+          if(!extracted.listing && (extracted.description?.length||0)>=60) {
+            pending.length=0
+            if(verified) failed=false
+          }
+          pending.unshift(...extracted.next.map(url=>link(url,page.url)).filter((url):url is string=>Boolean(url&&!visited.has(url))))
         }catch{
           failed=true;details.failed++
           // Do not log arbitrary organizer URLs: they can contain registration tokens.
-          break
         }
       }
+      if(pending.some(url=>!visited.has(url))){failed=true;details.skipped++}
       if(fields.size) details.enriched++
-      item.enrichment={status:failed||!fields.size?'unavailable':'enriched',fields:[...fields],base,chain}
+      item.enrichment={status:failed||!fields.size||!item.data.description?.trim()?'unavailable':'enriched',fields:[...fields],base,chain}
     }
   }))
   // Mark unvisited linked occurrences too, so persisted enrichment survives seasonal windows.

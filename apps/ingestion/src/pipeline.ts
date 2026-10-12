@@ -2,7 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Candidate, FetchText } from './types.ts'
 
-export const PROCESSOR_VERSION = 'shared-v1'
+export const PROCESSOR_VERSION = 'shared-v2'
 export type RawDocument = { scope: 'feed' | 'original'; request_url: string; response_url: string; body: string }
 export function requestKey(raw: string) {
   const u = new URL(raw)

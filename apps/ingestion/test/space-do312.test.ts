@@ -133,3 +133,16 @@ test('Do312 requests HTML pagination even when next links select JSON', async ()
   await assert.rejects(fetchDo312(async () => card() + '<a class="ds-next-page" href="?format=json"></a>', new Date('2026-11-01T12:00:00Z'), 1), /pagination/)
   await assert.rejects(fetchDo312(async () => card() + '<a class="ds-next-page" href="https://evil.example/?format=json&amp;page=2"></a>', new Date('2026-11-01T12:00:00Z'), 1), /pagination/)
 })
+
+test('Do312 generic social description is not treated as recovered event prose', async()=>{
+  const {buildEvidence}=await import('../src/semantic.ts')
+  const {enrichSource,extractDetail}=await import('../src/enrichment.ts')
+  const item=parseDo312(card(),'https://do312.com/').items[0]!
+  const html='<meta property="og:description" content="Check out Concert at Hall in Chicago on November 1, 2026 and get detailed info for the event - tickets, photos, video and reviews."><meta property="og:image" content="https://images.org/concert.jpg"><div class="ds-event-detail"><h1>Concert</h1></div>'
+  assert.equal(extractDetail(html,item.related_url!,item)?.description,null)
+  assert.deepEqual(buildEvidence(html,item.related_url!,item).blocks,[])
+  const result=await enrichSource({items:[item],warnings:[]},async url=>({url,html}),new Date('2026-11-01T12:00:00Z'))
+  assert.equal(result.items[0]!.enrichment?.status,'unavailable')
+  assert.equal(result.items[0]!.data.description,null)
+  assert.equal(result.items[0]!.data.cover_image_url,'https://images.org/concert.jpg')
+})
