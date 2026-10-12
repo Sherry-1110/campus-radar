@@ -63,12 +63,14 @@ export async function classifyEvent(event: EventText, key: string, transport: ty
   } } }, key, transport)
   const answer = record(record(resolved.answers).resolution), probabilities = record(answer.probabilities)
   const values = Object.keys(criteria).map(k => probabilities[k])
+  const total = values.reduce<number>((sum, p) => sum + (typeof p === 'number' ? p : NaN), 0)
   if (resolved.model !== MODEL || answer.type !== 'choice' || typeof answer.choice !== 'string'
     || !Object.hasOwn(criteria, answer.choice) || Object.keys(probabilities).length !== values.length
     || values.some(p => typeof p !== 'number' || !Number.isFinite(p) || p < 0 || p > 1)
     || typeof answer.confidence !== 'number' || !Number.isFinite(answer.confidence) || answer.confidence < 0 || answer.confidence > 1
-    || Math.abs((values as number[]).reduce((a, b) => a + b, 0) - 1) > .02
-    || probabilities[answer.choice] !== Math.max(...values as number[])) throw new Error('Invalid Jev category resolution')
+    // Allow half a percentage point of rounding per option plus floating-point error.
+    || Math.abs(total - 1) > values.length * .005 + Number.EPSILON
+    || probabilities[answer.choice] !== Math.max(...values as number[])) throw new Error(`Invalid Jev category resolution (sum=${total}, options=${Object.keys(probabilities).length})`)
   const category = answer.choice === 'other' ? 'other' : CATEGORY_GROUPS.find(g => g.value === answer.choice)!.members[0]
   return { categories: (probabilities[answer.choice] as number) >= .8 ? [category] : null, scores: { ...scores, resolution: answer } }
 }

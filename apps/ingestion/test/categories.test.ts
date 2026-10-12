@@ -41,6 +41,9 @@ test('borderline labels get one focused second pass; unresolved results never in
   assert.equal(calls, 2)
   assert.deepEqual(classified.scores.resolution, resolution)
   calls = 0
+  resolution.probabilities.music = 0; resolution.probabilities.sports = 0
+  assert.deepEqual((await classifyEvent(event, 'key', transport)).categories, ['play'], 'Rounded probabilities totaling 0.98 are still valid')
+  calls = 0
   resolution.choice = 'other'; resolution.confidence = .24
   resolution.probabilities = { music: .1, arts: .1, sports: .1, activities: .2, fests: .1, parties: .1, other: .3 }
   assert.equal((await classifyEvent(event, 'key', transport)).categories, null)
