@@ -30,9 +30,10 @@ export function buildEvidence(html:string,url:string,item:Candidate) {
   body.find('script,style,nav,header,footer,aside,form,button,[aria-hidden="true"],.breadcrumb,.breadcrumbs,.section-sponsors,.section-text-cta,.section-cards,.section-large-cards').remove()
   const blocks:Block[]=[];let heading='';let size=0
   for(const el of body.find(do312?'h1,h2,h3,h4,p,li,.ds-event-description-inner,.ds-event-description-inner div':'h1,h2,h3,h4,p,li,div').toArray()) {
-    const node=$(el),value=text(node.html())
-    if(/^h[1-4]$/.test(el.tagName)){heading=value.slice(0,200);continue}
+    const node=$(el)
     if(node.is('li,div')&&node.find('h1,h2,h3,h4,p,li,div').length) continue
+    const value=text(node.html())
+    if(/^h[1-4]$/.test(el.tagName)){heading=value.slice(0,200);continue}
     // Long descriptions and plain divs are common on publisher and ticket pages.
     if(value.length<30) continue
     let remaining=value
