@@ -373,7 +373,7 @@ automatically. Existing records are processed by the same job, not a separate
 one-time classifier. Explicit category arrays that differ from the existing
 classifier are preserved during backfill.
 
-The job checks nine live examples before writing, processes up to 5,000 distinct
+The job checks ten live examples before writing, processes up to 5,000 distinct
 texts with six workers and a 20-minute budget, and records totals in the Actions
 summary. Noul answers >=0.8 become tags. If none qualifies, all six must be <=0.2
 to use the neutral Event tag. Borderline labels get one focused independent Noul
