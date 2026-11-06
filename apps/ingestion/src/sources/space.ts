@@ -2,7 +2,6 @@ import type { FetchText, SourceResult } from '../types.ts'
 import { cancelled, category, deduplicate, iso, list, record, string, text, url } from './shared.ts'
 
 const WIDGET = 'https://evanstonspace.com/s/event-feed-widget.js'
-const LEGACY = 'https://static2.16oncenterchicago.com/eventbrite/v2/json/space.js'
 
 export function parseSpace(json: string): SourceResult {
   const feed = record(JSON.parse(json)), page = record(feed.page)
@@ -40,7 +39,7 @@ export function parseSpace(json: string): SourceResult {
 export async function fetchSpace(fetchText: FetchText): Promise<SourceResult> {
   const script = await fetchText(WIDGET)
   // Read public widget configuration as text; never execute downloaded JavaScript or store its API key in source.
-  const branch = /if\s*\(venue === ['"]space['"]\)\s*\{([\s\S]*?)\}\s*else/.exec(script)?.[1]
+  const branch = /if\s*\(venue === ['"]space['"](?:\s*\|\|\s*venue === ['"]space-presents['"])?\)\s*\{([\s\S]*?)\}\s*else/.exec(script)?.[1]
   const endpoints = [...(branch || '').matchAll(/tmUrl2?\s*=\s*['"]([^'"]+)['"]/g)].map(m => new URL(m[1]!))
   if (endpoints.length !== 2 || endpoints.some(u => u.origin !== 'https://app.ticketmaster.com' || u.pathname !== '/discovery/v2/events.json')) throw new Error('SPACE: public widget feed configuration changed')
   const result: SourceResult = { items: [], warnings: [] }
@@ -64,24 +63,6 @@ export async function fetchSpace(fetchText: FetchText): Promise<SourceResult> {
       result.warnings.push(...parsed.warnings)
     }
     if (read !== totalElements || ids.size !== read) throw new Error('SPACE: incomplete or repeated pagination')
-  }
-  const legacy = await fetchText(LEGACY)
-  const assignment = /^\s*window\.apiEvents\s*=\s*(\[[\s\S]*\])\s*;?\s*$/.exec(legacy)
-  if (!assignment) throw new Error('SPACE: invalid legacy event feed')
-  const old: unknown = JSON.parse(assignment[1]!)
-  if (!Array.isArray(old)) throw new Error('SPACE: invalid legacy event array')
-  for (const raw of old) {
-    const e = record(raw), id = string(e.id), title = text(record(e.name).html || record(e.name).text)
-    if (!id || !title) throw new Error('SPACE: incomplete legacy event identity')
-    const source = url(e.url) || `https://www.eventbrite.com/e/${id}`
-    result.items.push({ external_id: `eb:${id}`, listing_url: 'https://evanstonspace.com/all-shows', related_url: source, data: {
-      title, description: text(record(e.description).html) || null, source_url: source,
-      start_time: iso(record(e.start).utc), end_time: record(e.end).utc ? iso(record(e.end).utc) : null,
-      cover_image_url: url(record(record(e.logo).original).url || record(e.logo).url),
-      location: [text(record(e.venue).name), text(record(record(e.venue).address).localized_address_display)].filter(Boolean).join(', ') || null,
-      location_url: null, is_free: e.is_free === true, fee_text: null, category: 'music', is_all_day: false,
-      is_cancelled: record(e.event_sales_status).message_code === 'event_cancelled' || e.status === 'canceled' || cancelled(title),
-    } })
   }
   result.items = deduplicate(result.items)
   return result

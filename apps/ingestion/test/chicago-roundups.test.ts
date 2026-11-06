@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
-import { ARTICLE, fetchChicagoRoundups, parseDates } from '../src/sources/chicago-roundups.ts'
+import { ARTICLE, fetchChicagoRoundups, parseArticle, parseDates } from '../src/sources/chicago-roundups.ts'
 
 test('roundup dates become first and last days', () => {
   const today = '2026-10-05'
@@ -12,6 +13,46 @@ test('roundup dates become first and last days', () => {
   assert.deepEqual(parseDates('starting Oct. 3', today), ['2026-10-03', '2026-10-31'])
   assert.deepEqual(parseDates('Jan. 3', '2026-12-20'), ['2027-01-03', '2027-01-03'])
   assert.equal(parseDates('Fridays in October', today), null)
+})
+
+test('roundup dates preserve explicit years and November opening/range labels', () => {
+  const today = '2026-11-06'
+  for (const [dates, expected] of [
+    ['Nov. 6, 2026', ['2026-11-06', '2026-11-06']],
+    ['Nov. 14 – 15, 2026', ['2026-11-14', '2026-11-15']],
+    ['Nov. 13 – Dec. 31, 2026', ['2026-11-13', '2026-12-31']],
+    ['Nov. 13, 2026 – Jan. 3, 2027', ['2026-11-13', '2027-01-03']],
+    ['Opens Nov. 7, 2026', ['2026-11-07', '2026-11-30']],
+    ['Starts Nov. 13, 2026', ['2026-11-13', '2026-11-30']],
+    ['Through Nov. 29, 2026', [today, '2026-11-29']],
+    ['Now open through Jan. 31, 2027', [today, '2027-01-31']],
+    ['Nov. 6, 2025', ['2025-11-06', '2025-11-06']],
+  ] as const) assert.deepEqual(parseDates(dates, today), expected, dates)
+  assert.equal(parseDates('Nov. 31, 2026', today), null)
+  assert.equal(parseDates('Nov. 20 – 13, 2026', today), null)
+})
+
+test('November heading-based picks retain organizer links, date ranges and conditional admission', async () => {
+  const html = await readFile(new URL('./fixtures/chicago-roundups-november.html', import.meta.url), 'utf8')
+  const picks = parseArticle(html)
+  assert.equal(picks.length, 9, 'Ignore the duplicate overview and unrelated hotel section')
+  assert.deepEqual(picks[0], {
+    name: 'Christmas Around the World', link: 'https://www.griffinmsi.org/exhibits/christmas-around-the-world',
+    dates: 'Opens Nov. 7, 2026', free: false,
+  })
+  const result = await fetchChicagoRoundups(async raw => {
+    if (raw === ARTICLE) return html
+    assert.equal(new URL(raw).pathname, '/wp-json/tribe/events/v1/events')
+    return JSON.stringify({ events: [] })
+  }, new Date('2026-11-06T15:00:00Z'))
+  assert.equal(result.items.length, 9)
+  assert.deepEqual(result.warnings, [])
+  const lightscape = result.items.find(item => item.data.title === 'Lightscape')!
+  assert.equal(lightscape.data.start_time, '2026-11-13T06:00:00.000Z')
+  assert.equal(lightscape.data.end_time, '2027-01-04T05:59:59.999Z')
+  assert.deepEqual(result.items.filter(item => item.data.is_free).map(item => item.data.title), ['Christkindlmarket Chicago'])
+  await assert.rejects(fetchChicagoRoundups(async () => '<h2>Access denied</h2>'), /only 0 picks/)
+  assert.throws(() => parseArticle(html.replace('https://www.griffinmsi.org/exhibits/christmas-around-the-world', 'javascript:alert(1)')), /URL/)
 })
 
 const pick = (name: string, href: string, dates: string, blurb = 'Something to see.') =>

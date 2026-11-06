@@ -509,3 +509,29 @@ Verified descriptions and stored posters are retained when another fetch fails.
 The existing 400-page/eight-minute source budget still bounds fetches; successful
 complete records leave the work queue through the seven-day cache, allowing later
 runs to work through the remaining records.
+
+### Publisher format repairs (November 6, 2026)
+
+The November 5 nightly run failed in four source adapters; the other seven sources,
+coordinates, categories, and raw retention succeeded. The failed adapters now follow
+the publishers' current public formats:
+
+- Chicago roundups: heading-based November picks and explicit-year date ranges,
+  including opening dates. Conditional free-admission offers do not mark an event free.
+- Cats on Campus: migrated app-shell detail pages use the publisher's public iCalendar
+  feed, matched to every listed event ID. The calendar's CampusGroups CDN is explicitly
+  allowed. Private locations remain unknown; missing IDs and malformed feeds still fail.
+  Old captured JSON-LD pages remain replayable.
+- SPACE: the shared `space`/`space-presents` widget branch supplies both Ticketmaster
+  feeds. The retired, unreachable Eventbrite feed is no longer requested; existing
+  Eventbrite-only records are not deleted, but old raw replay no longer rebuilds them.
+- Do312: redesigned listings use their public SvelteKit JSON responses, decoded as
+  bounded reference data without evaluating JavaScript. Stable IDs, offset timestamps,
+  complete pagination, and ambiguous-series exclusions remain enforced. The new listing
+  omits admission prices, so those stay unknown. Legacy captured HTML remains replayable.
+
+Read-only live verification returned 22 roundup candidates, 86 Cats on Campus events,
+107 SPACE events, and 2,722 Do312 occurrences across 14 days. Counts vary with the feeds.
+Regression fixtures cover the changed formats and malformed/truncated responses. The
+category-queue test now keeps its comparison inputs in the future instead of expiring
+on a fixed calendar date.

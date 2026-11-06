@@ -1,0 +1,75 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:CAMPUSGROUPS
+X-WR-CALNAME:Northwestern University
+X-PUBLISHED-TTL:PT1H
+BEGIN:VEVENT
+DTSTAMP:20261105T220545Z
+LAST-MODIFIED:20261006T010839Z
+CREATED:20260914T174325Z
+SEQUENCE:4
+ORGANIZER;CN="Multicultural Student Affairs":mailto:noreply@catsoncampus.northwestern.edu
+CONTACT:https://catsoncampus.northwestern.edu/msa/rsvp_boot?id=376563#event_host
+CATEGORIES;X-CG-CATEGORY=club_acronym:MSA
+CATEGORIES;X-CG-CATEGORY=event_type:Workshop
+DTSTART:20261005T200000Z
+DTEND:20261005T220000Z
+UID:f99773d1f3b7960d7227fb4a34c50cc09142026_1:43:25_PM@campusgroups.com
+SUMMARY;ENCODING=QUOTED-PRINTABLE:MCC Monday
+LOCATION: Sign in to download the location
+URL:https://catsoncampus.northwestern.edu/rsvp?id=376563
+DESCRIPTION:Join us for a Block Printing Workshop. We will spend time together to learn the basics of linoleum block printing– including designing, carving, and printing original prints. All skill levels are welcome and all materials will be provided for use in session. We hope this space will be one of collective artmaking, communal healing, and visioning of better worlds!\n\nTabitha Wiggins, Assistant Vice President for Campus Inclusion and Community, will join us for this special edition of MCC Mondays. Come create with Yasmeen, MSA staff, and Tabitha.\n\nSpace is limited. RSVP on ‘Cats on Campus.\n\nBios:\nYasmeen Khayr (she/her) is a Muslim, Lebanese artist, community-based researcher and facilitator, and art therapist-in-training, based in Rogers Park. She loves artmaking as a release of creative energy and emotional expression. Yasmeen is inspired by the power of communal artmaking as a practice of radical imagining and building of new worlds. Yasmeen plays with linoleum block printing, embroidery, painting, and mixed media creations.\n\nTabitha (she/they) is the Assistant Vice President for Campus Inclusion and Community. They grew up on the south side of Chicago. They returned home to Chicago in 2024 to work with the NU community to create a place where students, staff, and faculty of all backgrounds could not only survive but thrive. They are passionate about student success, Black futures, and living alongside their dog, Denver. \n---\nEvent Details: https://catsoncampus.northwestern.edu/rsvp?id=376563
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261105T220547Z
+LAST-MODIFIED:20260928T174845Z
+CREATED:20260920T215848Z
+SEQUENCE:7
+ORGANIZER;CN="Quizbowl":mailto:noreply@catsoncampus.northwestern.edu
+CONTACT:https://catsoncampus.northwestern.edu/quizbowl/rsvp_boot?id=376637#event_host
+CATEGORIES;X-CG-CATEGORY=club_acronym:QUIZBOWL
+CATEGORIES;X-CG-CATEGORY=event_type:Social
+CATEGORIES;X-CG-CATEGORY=event_tags:Free Snacks,Info/Welcome Session
+DTSTART:20261005T233000Z
+DTEND:20261006T020000Z
+UID:66e41df825cca8c0cef76effea75a41d9202026_5:58:48_PM@campusgroups.com
+SUMMARY;ENCODING=QUOTED-PRINTABLE:(FREE FOOD!) NU Quizbowl Trivia Night
+LOCATION:Parkes 122, Evanston, IL 60208, United States
+URL:https://catsoncampus.northwestern.edu/rsvp?id=376637
+DESCRIPTION:Please RSVP (https://forms.gle/PF3y9VabyxkY69SE6) so we know how many people to expect! We will welcome a few walk-ins but not everyone will be able to get food if we don't know how many people to expect.\n\nTrivia night hosted by Northwestern Quizbowl, covering a wide variety of academic topics. We will have food catered from La Cocinita for everyone, and ! This event is geared towards people with no experience in Quizbowl, but open to everyone regardless of prior experience! \n---\nEvent Details: https://catsoncampus.northwestern.edu/rsvp?id=376637
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261105T220552Z
+LAST-MODIFIED:20260923T141236Z
+CREATED:20260922T194120Z
+SEQUENCE:1
+ORGANIZER;CN="Ballroom Latin and Swing Team":mailto:noreply@catsoncampus.northwestern.edu
+CONTACT:https://catsoncampus.northwestern.edu/blast/rsvp_boot?id=376726#event_host
+CATEGORIES;X-CG-CATEGORY=club_acronym:BLAST
+CATEGORIES;X-CG-CATEGORY=event_type:Social
+DTSTART:20261101T210000Z
+DTEND:20261101T230000Z
+UID:cd4d04a448787974d1cc27b5250ebc689222026_3:41:20_PM@campusgroups.com
+SUMMARY;ENCODING=QUOTED-PRINTABLE:Beginner Lesson
+LOCATION:Chicago Ballet Arts, 915 Foster St, Evanston , IL 60201, United States
+URL:https://catsoncampus.northwestern.edu/rsvp?id=376726
+DESCRIPTION:Come learn a new style of ballroom dance. No partner or experience required. Bring socks!\n---\nEvent Details: https://catsoncampus.northwestern.edu/rsvp?id=376726
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20261105T220559Z
+LAST-MODIFIED:20261007T194941Z
+CREATED:20261007T174717Z
+SEQUENCE:1
+ORGANIZER;CN="Snapshot!":mailto:noreply@catsoncampus.northwestern.edu
+CONTACT:https://catsoncampus.northwestern.edu/snapshot/rsvp_boot?id=376923#event_host
+CATEGORIES;X-CG-CATEGORY=club_acronym:SNAPSHOT
+CATEGORIES;X-CG-CATEGORY=event_type:Social
+DTSTART:20261007T180000Z
+DTEND:20261121T055500Z
+UID:a961a66f118bbcc72212aad1f95e14df1072026_1:47:17_PM@campusgroups.com
+SUMMARY;ENCODING=QUOTED-PRINTABLE:Snapshot! - Fall Photo Contest
+LOCATION: Sign in to download the location
+URL:https://catsoncampus.northwestern.edu/rsvp?id=376923
+DESCRIPTION:Submit our midwestern fall themed photos for a chance to win a digital camera! \n\nSubmit here:\nhttps://forms.gle/t4FVbieBqs5zD9J26\n---\nEvent Details: https://catsoncampus.northwestern.edu/rsvp?id=376923
+END:VEVENT
+END:VCALENDAR

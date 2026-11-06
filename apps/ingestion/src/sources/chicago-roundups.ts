@@ -8,16 +8,26 @@ const ORIGIN = 'https://www.choosechicago.com'
 export const ARTICLE = `${ORIGIN}/blog/special-events/things-to-do-in-chicago-this-month/`
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 const MONTH = String.raw`(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?`
-const DATES = new RegExp(String.raw`^(through|until|starting|beginning)?\s*${MONTH}(?:\s+(\d{1,2}))?(?:\s*-\s*(?:${MONTH}\s+)?(\d{1,2}))?$`)
+const DATES = new RegExp(String.raw`^(through|until|starting|beginning|opens|starts)?\s*${MONTH}(?:\s+(\d{1,2}))?(?:,\s*(\d{4}))?(?:\s*-\s*(?:${MONTH}\s+)?(\d{1,2})(?:,\s*(\d{4}))?)?$`)
 const DAY = 86_400_000
 
 export interface Pick { name: string; link: string; dates: string; free: boolean }
 
-/** Each pick is a paragraph: a bold name linking to the organizer, then "(dates): why to go". */
+/** Picks use linked bold names with parenthesized dates, or headings with date/venue/admission lines. */
 export function parseArticle(html: string): Pick[] {
   const $ = load(html)
   const picks: Pick[] = []
   $('h2').filter((_, h) => /events in Chicago/i.test($(h).text())).each((_, h) => {
+    $(h).nextUntil('h2').filter('h3').each((_, heading) => {
+      const paragraph = $(heading).nextUntil('h2,h3').find('p').addBack('p').first()
+      const lines = paragraph.children('b,strong')
+      const link = paragraph.find('a').filter((_, a) => $(a).find('b,strong').length > 0).first()
+      const name = $(heading).text().replace(/\s+/g, ' ').trim()
+      const dates = lines.first().text().trim()
+      const href = link.attr('href')
+      if (!name || !dates || !href) return
+      picks.push({ name, link: url(href, ORIGIN)!, dates, free: /^free(?: admission)?$/i.test(lines.eq(2).text().trim()) })
+    })
     $(h).nextUntil('h2,h3').find('p').addBack('p').each((_, p) => {
       const lead = $(p).children().first()
       if (!lead.is('b,strong') && !lead.children('b,strong').length) return
@@ -35,20 +45,24 @@ const ymd = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d)).toI
 
 /** "Oct. 4", "Oct. 9– 11", "Oct. 30 – Nov. 2", "through Oct. 11", "starting Oct. 3", "through October" → first and last day. */
 export function parseDates(text: string, today: string): [string, string] | null {
-  const m = DATES.exec(text.toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim())
+  const m = DATES.exec(text.toLowerCase().replace(/[–—]/g, '-').replace(/\s+/g, ' ').trim().replace(/^now open through /, 'through '))
   if (!m) return null
-  const [, prefix, month1, day1, month2, day2] = m
+  const [, prefix, month1, day1, year1, month2, day2, year2] = m
   const mo1 = MONTHS.indexOf(month1!.slice(0, 3))
   const mo2 = month2 ? MONTHS.indexOf(month2.slice(0, 3)) : mo1
   // A month earlier than half a year ago belongs to next year (a December article listing January).
   const thisYear = Number(today.slice(0, 4)), nowMonth = Number(today.slice(5, 7)) - 1
-  const y1 = thisYear + (mo1 < nowMonth - 6 ? 1 : 0), y2 = y1 + (mo2 < mo1 ? 1 : 0)
+  const y1 = year1 ? Number(year1) : year2 ? Number(year2) - (mo2 < mo1 ? 1 : 0) : thisYear + (mo1 < nowMonth - 6 ? 1 : 0)
+  const y2 = year2 ? Number(year2) : y1 + (mo2 < mo1 ? 1 : 0)
+  if (day1 && (Number(day1) < 1 || Number(day1) > new Date(Date.UTC(y1, mo1 + 1, 0)).getUTCDate()) ||
+      day2 && (Number(day2) < 1 || Number(day2) > new Date(Date.UTC(y2, mo2 + 1, 0)).getUTCDate())) return null
   const monthEnd = ymd(y1, mo1 + 1, 0)
   const first = day1 ? ymd(y1, mo1, Number(day1)) : ymd(y1, mo1, 1)
   const last = day2 ? ymd(y2, mo2, Number(day2)) : day1 ? first : monthEnd
+  if (last < first) return null
   if (prefix === 'through' || prefix === 'until') return [today, day1 ? first : monthEnd]
-  // ponytail: "starting Oct. 3" has no stated end; assume the article's month.
-  if (prefix === 'starting' || prefix === 'beginning') return [first, monthEnd]
+  // shortcut: opening dates have no stated end; assume that month until the article supplies a range.
+  if (prefix === 'starting' || prefix === 'beginning' || prefix === 'opens' || prefix === 'starts') return [first, monthEnd]
   return [first, last]
 }
 

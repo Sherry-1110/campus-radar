@@ -16,11 +16,10 @@ test('SPACE keeps explicit cancellations, stable IDs, UTC and unknown prices', (
   assert.throws(() => parseSpace('{}'))
   assert.throws(() => parseSpace(feed([event({ dates: {} })])))
 })
-test('SPACE discovers published widget URLs, drains pagination and legacy feed without eval', async () => {
+test('SPACE discovers published widget URLs and drains pagination without eval', async () => {
   let pages = 0
   const result = await fetchSpace(async href => {
     if (href.endsWith('event-feed-widget.js')) return `if (venue === 'space') { tmUrl = 'https://app.ticketmaster.com/discovery/v2/events.json?apikey=public-example&venueId=space'; tmUrl2 = 'https://app.ticketmaster.com/discovery/v2/events.json?apikey=public-example&promoterId=1'; } else if (venue === 'other') {}`
-    if (href.includes('space.js')) return 'window.apiEvents = []'
     if (href.includes('promoterId')) return feed([])
     pages++
     return new URL(href).searchParams.get('page') === '1' ? feed([event({ id: 'stable-2' })], 1, 2, 2) : feed([event()], 0, 2, 2)
@@ -50,10 +49,9 @@ test('Do312 drains each date pagination and fails pagination loops', async () =>
   assert.equal(result.items.length, 2)
   await assert.rejects(fetchDo312(async () => card() + '<a class="ds-next-page" href="?page=2"></a>', new Date('2026-11-01T12:00:00Z'), 1), /pagination/i)
 })
-test('SPACE refuses truncated pages and executable legacy scripts', async () => {
+test('SPACE refuses truncated pages', async () => {
   const widget = `if (venue === 'space') { tmUrl = 'https://app.ticketmaster.com/discovery/v2/events.json?venueId=space'; tmUrl2 = 'https://app.ticketmaster.com/discovery/v2/events.json?promoterId=1'; } else {}`
   await assert.rejects(fetchSpace(async href => href.endsWith('event-feed-widget.js') ? widget : feed([event()], 0, 1, 2)), /incomplete/)
-  await assert.rejects(fetchSpace(async href => href.endsWith('event-feed-widget.js') ? widget : href.endsWith('space.js') ? 'window.apiEvents = []; fetch("https://evil.example")' : feed([])), /legacy/)
 })
 test('Do312 does not treat ticket giveaways as free or missing cards as a valid feed', () => {
   assert.equal(parseDo312(card('<div class="ds-listing-extra">Win free tickets!</div>'), 'https://do312.com/').items[0]!.data.is_free, false)

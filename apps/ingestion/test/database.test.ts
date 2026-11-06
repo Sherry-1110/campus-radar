@@ -278,6 +278,8 @@ test('nightly reconciliation is atomic, idempotent, respects edits, and is servi
     tagged.data.description = 'An academic panel on public policy.'
     await sync([tagged], 'Choose Chicago')
     assert.equal((await db.query("select * from public.pending_event_categories() where title=$1 and description=$2", [tagged.data.title, tagged.data.description])).rows.length, 1, 'Changed descriptions must be queued again')
+    // Rotation compares future inputs; fixed fixture dates eventually become past events.
+    await db.query("update events set start_time=now()+interval '1 day' where source_url in ($1,$2)", [city.data.source_url, tagged.data.source_url])
     const pendingFirst = (await db.query<{title:string;description:string}>('select * from public.pending_event_categories(1)')).rows[0]
     await db.query("select public.remember_event_categories($1,$2,null,'{}','fun-v1','jev-1.13.0')", [pendingFirst.title, pendingFirst.description])
     const pendingNext = (await db.query<{title:string;description:string}>('select * from public.pending_event_categories(1)')).rows[0]
